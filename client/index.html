@@ -7,849 +7,515 @@
 <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Unbounded:wght@400;600;700;800;900&display=swap');
-
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  
   :root {
-    --bg-primary: #0a0a0f;
-    --bg-card: #14141f;
-    --bg-card-border: #1e1e2e;
-    --text-primary: #e8e8f0;
-    --text-secondary: #7a7a8e;
-    --accent-green: #00e676;
-    --accent-blue: #448aff;
-    --accent-gold: #ffd740;
-    --accent-red: #ff5252;
-    --ton-blue: #0098ea;
-    --ton-gradient: linear-gradient(135deg, #0098ea 0%, #69c4ff 100%);
-    --glass-bg: rgba(20, 20, 31, 0.85);
-    --glass-border: rgba(255, 255, 255, 0.06);
-    --shadow-heavy: 0 8px 32px rgba(0, 0, 0, 0.6);
-    --radius: 16px;
-    --radius-sm: 10px;
-    --radius-xs: 6px;
+    --bg: #0a0a0f; --card: #14141f; --card-b: #1e1e2e;
+    --text: #e8e8f0; --text2: #7a7a8e; --green: #00e676;
+    --blue: #0098ea; --gold: #ffd740; --red: #ff5252;
+    --glass: rgba(20,20,31,0.85); --radius: 14px;
   }
+  html, body { width:100%; height:100%; background:var(--bg); color:var(--text);
+    font-family:'JetBrains Mono',monospace; overflow:hidden; user-select:none;
+    -webkit-tap-highlight-color:transparent; }
+  #app { width:100%; height:100%; display:flex; flex-direction:column; max-width:480px; margin:0 auto; }
 
-  html, body {
-    width: 100%; height: 100%;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    font-family: 'JetBrains Mono', monospace;
-    overflow: hidden;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
-  }
-
-  #app {
-    width: 100%; height: 100%;
-    display: flex; flex-direction: column;
-    max-width: 480px;
-    margin: 0 auto;
-    position: relative;
-  }
+  /* ── TON SVG icon inline ── */
+  .ton { display:inline-flex; align-items:center; gap:2px; }
+  .ton svg { width:14px; height:14px; flex-shrink:0; }
 
   /* ── HEADER ── */
-  .header {
-    display: flex; gap: 6px;
-    padding: 10px 12px 6px;
-    flex-shrink: 0;
-  }
-  .header-block {
-    flex: 1;
-    background: var(--bg-card);
-    border: 1px solid var(--bg-card-border);
-    border-radius: var(--radius-sm);
-    padding: 8px 10px;
-    display: flex; flex-direction: column; gap: 4px;
-  }
-  .header-label {
-    font-size: 10px;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    text-align: center;
-  }
-  .header-value {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 12px; font-weight: 600;
-  }
-  .header-avatar {
-    width: 22px; height: 22px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 8px; font-weight: 700;
-    color: #fff;
-    flex-shrink: 0;
-  }
-  .header-amount {
-    margin-left: auto;
-    color: var(--accent-green);
-    font-weight: 700;
-    white-space: nowrap;
-  }
-  .ton-icon {
-    width: 14px; height: 14px;
-    display: inline-block;
-    vertical-align: middle;
-  }
-  .ton-icon svg { width: 100%; height: 100%; }
+  .header { display:flex; gap:5px; padding:8px 10px 4px; flex-shrink:0; }
+  .hblock { flex:1; background:var(--card); border:1px solid var(--card-b);
+    border-radius:10px; padding:7px 9px; }
+  .hlabel { font-size:9px; color:var(--text2); text-transform:uppercase;
+    letter-spacing:.5px; text-align:center; margin-bottom:3px; }
+  .hval { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; }
+  .hav { width:20px; height:20px; border-radius:50%; display:flex; align-items:center;
+    justify-content:center; font-size:7px; font-weight:700; color:#fff; flex-shrink:0; }
+  .hamt { margin-left:auto; color:var(--green); font-weight:700; white-space:nowrap; font-size:11px; }
 
-  /* ── ARENA WRAPPER ── */
-  .arena-section {
-    flex: 1;
-    display: flex; flex-direction: column;
-    padding: 6px 12px;
-    min-height: 0;
-  }
-  
-  /* Status bar above arena */
-  .status-bar {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 8px 12px;
-    background: var(--bg-card);
-    border: 1px solid var(--bg-card-border);
-    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-    border-bottom: none;
-  }
-  .total-pool {
-    display: flex; align-items: center; gap: 6px;
-    font-family: 'Unbounded', sans-serif;
-  }
-  .total-label {
-    font-size: 13px; color: var(--text-secondary);
-  }
-  .total-amount {
-    font-size: 18px; font-weight: 800;
-    color: var(--accent-green);
-  }
-  .status-badge {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 12px; font-weight: 600;
-    padding: 4px 10px;
-    border-radius: 20px;
-    transition: all 0.3s ease;
-  }
-  .status-badge.waiting {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text-secondary);
-  }
-  .status-badge.countdown {
-    background: rgba(255, 152, 0, 0.15);
-    color: #ff9800;
-  }
-  .status-badge.live {
-    background: rgba(0, 230, 118, 0.15);
-    color: var(--accent-green);
-  }
-  .status-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: currentColor;
-    animation: pulse-dot 1.5s infinite;
-  }
-  @keyframes pulse-dot {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(0.7); }
-  }
+  /* ── BALANCE ── */
+  .balance-bar { display:flex; justify-content:center; align-items:center; gap:6px;
+    padding:2px 10px 4px; flex-shrink:0; }
+  .balance-bar span { font-size:12px; color:var(--text2); }
+  .balance-amount { font-family:'Unbounded',sans-serif; font-size:15px; font-weight:800; color:var(--text); }
 
-  /* Canvas container */
-  .arena-canvas-wrap {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    background: var(--bg-card);
-    border: 1px solid var(--bg-card-border);
-    border-top: none;
-    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-    overflow: hidden;
-  }
-  .arena-canvas-wrap canvas {
-    width: 100%; height: 100%;
-    display: block;
-  }
+  /* ── ARENA ── */
+  .arena-section { flex:1; display:flex; flex-direction:column; padding:2px 10px; min-height:0; }
+  .status-bar { display:flex; justify-content:space-between; align-items:center;
+    padding:6px 10px; background:var(--card); border:1px solid var(--card-b);
+    border-radius:10px 10px 0 0; border-bottom:none; }
+  .total-pool { display:flex; align-items:center; gap:5px; font-family:'Unbounded',sans-serif; }
+  .total-label { font-size:12px; color:var(--text2); }
+  .total-amt { font-size:17px; font-weight:800; color:var(--green); }
+  .status-badge { display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600;
+    padding:3px 9px; border-radius:18px; transition:all .3s; }
+  .status-badge.waiting { background:rgba(255,255,255,.05); color:var(--text2); }
+  .status-badge.countdown { background:rgba(255,152,0,.15); color:#ff9800; }
+  .status-badge.live { background:rgba(0,230,118,.15); color:var(--green); }
+  .sdot { width:7px; height:7px; border-radius:50%; background:currentColor; animation:pdot 1.5s infinite; }
+  @keyframes pdot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.7)} }
+
+  .arena-wrap { position:relative; width:100%; aspect-ratio:1/1; background:var(--card);
+    border:1px solid var(--card-b); border-top:none; border-radius:0 0 10px 10px; overflow:hidden; }
+  .arena-wrap canvas { width:100%; height:100%; display:block; }
+
+  /* ── PLAYER LIST ── */
+  .player-list { max-height:120px; overflow-y:auto; padding:4px 10px; flex-shrink:0; }
+  .player-list::-webkit-scrollbar { width:3px; }
+  .player-list::-webkit-scrollbar-thumb { background:var(--card-b); border-radius:3px; }
+  .pli { display:flex; align-items:center; gap:7px; padding:4px 8px; margin-bottom:2px;
+    background:var(--card); border:1px solid var(--card-b); border-radius:8px; font-size:11px; }
+  .pli-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .pli-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
+  .pli-bet { font-weight:700; color:var(--green); white-space:nowrap; }
 
   /* ── FOOTER ── */
-  .footer {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 8px 12px 10px;
-    flex-shrink: 0;
-  }
-  .footer-left, .footer-right {
-    font-size: 13px; font-weight: 600;
-    color: var(--text-secondary);
-  }
-  .footer-left span, .footer-right span {
-    color: var(--text-primary);
-  }
+  .footer { display:flex; justify-content:space-between; align-items:center;
+    padding:4px 10px; flex-shrink:0; }
+  .footer-l,.footer-r { font-size:12px; font-weight:600; color:var(--text2); }
+  .footer-l span,.footer-r span { color:var(--text); }
 
   /* ── BET PANEL ── */
-  .bet-panel {
-    padding: 6px 12px 14px;
-    flex-shrink: 0;
-  }
-  .bet-form {
-    display: flex; gap: 8px; align-items: stretch;
-  }
-  .bet-input-wrap {
-    flex: 1;
-    position: relative;
-  }
-  .bet-input {
-    width: 100%;
-    background: var(--bg-card);
-    border: 1px solid var(--bg-card-border);
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 16px; font-weight: 600;
-    padding: 10px 40px 10px 14px;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  .bet-input:focus {
-    border-color: var(--ton-blue);
-  }
-  .bet-input::placeholder {
-    color: var(--text-secondary);
-    font-weight: 400;
-  }
-  .bet-ton-label {
-    position: absolute;
-    right: 12px; top: 50%; transform: translateY(-50%);
-    font-size: 12px; color: var(--ton-blue);
-    font-weight: 700;
-    pointer-events: none;
-  }
-  .bet-btn {
-    background: var(--ton-gradient);
-    border: none;
-    border-radius: var(--radius-sm);
-    color: #fff;
-    font-family: 'Unbounded', sans-serif;
-    font-size: 13px; font-weight: 700;
-    padding: 10px 20px;
-    cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s;
-    white-space: nowrap;
-  }
-  .bet-btn:active {
-    transform: scale(0.95);
-  }
-  .bet-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    transform: none;
-  }
-  .bet-presets {
-    display: flex; gap: 6px;
-    margin-top: 6px;
-  }
-  .bet-preset {
-    flex: 1;
-    background: rgba(255,255,255, 0.04);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-xs);
-    color: var(--text-secondary);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px; font-weight: 600;
-    padding: 5px 0;
-    cursor: pointer;
-    text-align: center;
-    transition: all 0.15s;
-  }
-  .bet-preset:active {
-    background: rgba(0, 152, 234, 0.15);
-    color: var(--ton-blue);
-    border-color: var(--ton-blue);
-  }
+  .bet-panel { padding:4px 10px 12px; flex-shrink:0; }
+  .bet-form { display:flex; gap:6px; }
+  .bet-iw { flex:1; position:relative; }
+  .bet-in { width:100%; background:var(--card); border:1px solid var(--card-b); border-radius:10px;
+    color:var(--text); font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:600;
+    padding:9px 40px 9px 12px; outline:none; transition:border-color .2s; }
+  .bet-in:focus { border-color:var(--blue); }
+  .bet-in::placeholder { color:var(--text2); font-weight:400; }
+  .bet-tl { position:absolute; right:10px; top:50%; transform:translateY(-50%);
+    font-size:11px; color:var(--blue); font-weight:700; pointer-events:none; }
+  .bet-btn { background:linear-gradient(135deg,#0098ea,#69c4ff); border:none; border-radius:10px;
+    color:#fff; font-family:'Unbounded',sans-serif; font-size:12px; font-weight:700;
+    padding:9px 18px; cursor:pointer; transition:transform .15s; white-space:nowrap; }
+  .bet-btn:active { transform:scale(.95); }
+  .bet-btn:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+  .bet-presets { display:flex; gap:5px; margin-top:5px; }
+  .bet-pre { flex:1; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.06);
+    border-radius:6px; color:var(--text2); font-family:'JetBrains Mono',monospace;
+    font-size:10px; font-weight:600; padding:4px 0; cursor:pointer; text-align:center; transition:all .15s; }
+  .bet-pre:active { background:rgba(0,152,234,.15); color:var(--blue); }
 
-  /* ── WINNER POPUP ── */
-  .winner-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.7);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 100;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.4s;
-    backdrop-filter: blur(4px);
-  }
-  .winner-overlay.show {
-    opacity: 1;
-    pointer-events: auto;
-  }
-  .winner-card {
-    background: var(--bg-card);
-    border: 1px solid var(--bg-card-border);
-    border-radius: 20px;
-    padding: 28px 36px;
-    text-align: center;
-    max-width: 320px;
-    width: 90%;
-    position: relative;
-    box-shadow: var(--shadow-heavy), 0 0 60px rgba(0, 230, 118, 0.15);
-    transform: scale(0.8);
-    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  .winner-overlay.show .winner-card {
-    transform: scale(1);
-  }
-  .winner-close {
-    position: absolute;
-    top: 12px; right: 14px;
-    width: 28px; height: 28px;
-    background: rgba(255,255,255,0.05);
-    border: none; border-radius: 50%;
-    color: var(--text-secondary);
-    font-size: 16px;
-    cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .winner-crown { font-size: 36px; margin-bottom: 8px; }
-  .winner-name {
-    font-family: 'Unbounded', sans-serif;
-    font-size: 18px; font-weight: 700;
-    margin-bottom: 12px;
-  }
-  .winner-amount {
-    font-family: 'Unbounded', sans-serif;
-    font-size: 32px; font-weight: 900;
-    color: var(--accent-green);
-    margin-bottom: 4px;
-  }
-  .winner-multiplier {
-    font-size: 14px;
-    color: var(--accent-gold);
-    font-weight: 700;
-  }
+  /* ── WINNER ── */
+  .wov { position:fixed; inset:0; background:rgba(0,0,0,.7); display:flex; align-items:center;
+    justify-content:center; z-index:100; opacity:0; pointer-events:none; transition:opacity .4s;
+    backdrop-filter:blur(4px); }
+  .wov.show { opacity:1; pointer-events:auto; }
+  .wcard { background:var(--card); border:1px solid var(--card-b); border-radius:20px;
+    padding:24px 32px; text-align:center; max-width:300px; width:90%; position:relative;
+    box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 60px rgba(0,230,118,.15);
+    transform:scale(.8); transition:transform .4s cubic-bezier(.34,1.56,.64,1); }
+  .wov.show .wcard { transform:scale(1); }
+  .wcl { position:absolute; top:10px; right:12px; width:26px; height:26px;
+    background:rgba(255,255,255,.05); border:none; border-radius:50%; color:var(--text2);
+    font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .wcrown { font-size:32px; margin-bottom:6px; }
+  .wname { font-family:'Unbounded',sans-serif; font-size:16px; font-weight:700; margin-bottom:10px; }
+  .wamt { font-family:'Unbounded',sans-serif; font-size:28px; font-weight:900; color:var(--green); margin-bottom:3px; }
+  .wmult { font-size:13px; color:var(--gold); font-weight:700; }
 
-  /* ── CONFETTI ── */
-  .confetti-container {
-    position: fixed; inset: 0;
-    pointer-events: none;
-    z-index: 99;
-    overflow: hidden;
-  }
-  .confetti-piece {
-    position: absolute;
-    width: 10px; height: 10px;
-    top: -20px;
-    animation: confetti-fall linear forwards;
-  }
-  @keyframes confetti-fall {
-    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-    100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
-  }
+  .confetti { position:fixed; inset:0; pointer-events:none; z-index:99; overflow:hidden; }
+  .cp { position:absolute; width:10px; height:10px; top:-20px; animation:cfall linear forwards; }
+  @keyframes cfall { 0%{transform:translateY(0) rotate(0);opacity:1} 100%{transform:translateY(110vh) rotate(720deg);opacity:0} }
 </style>
 </head>
 <body>
 
 <div id="app">
-  <!-- Header -->
   <div class="header">
-    <div class="header-block">
-      <div class="header-label">Топ игра</div>
-      <div class="header-value">
-        <div class="header-avatar" id="topAvatar" style="background:#4CAF50">GO</div>
-        <span id="topName">Grey Oscar</span>
-        <span class="header-amount" id="topAmount">+28 001 ◈</span>
+    <div class="hblock">
+      <div class="hlabel">Топ игра</div>
+      <div class="hval">
+        <div class="hav" id="topAv" style="background:#4CAF50">GO</div>
+        <span id="topNm">Grey Oscar</span>
+        <span class="hamt ton" id="topAmt">+28 001 <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M28 56c15.464 0 28-12.536 28-28S43.464 0 28 0 0 12.536 0 28s12.536 28 28 28Z" fill="#0098EA"/><path d="M37.56 15.17H18.44c-3.38 0-5.37 3.78-3.44 6.53l13.12 18.6a2.13 2.13 0 0 0 3.5-.07l12.78-18.53c1.87-2.72-.09-6.43-3.4-6.53h-.44Zm-13.25 4.5H18.5a.63.63 0 0 1-.52-1l3.67-5.17h5.75l-3.09 6.17Zm12.44-.06h-5.58l-3.09-6.11h5.53l3.65 5.12a.63.63 0 0 1-.51.99Z" fill="#fff"/></svg></span>
       </div>
     </div>
-    <div class="header-block">
-      <div class="header-label">Последняя игра</div>
-      <div class="header-value">
-        <div class="header-avatar" id="lastAvatar" style="background:#9C27B0">NA</div>
-        <span id="lastName">@narcissist</span>
-        <span class="header-amount" id="lastAmount">+120 ◈</span>
+    <div class="hblock">
+      <div class="hlabel">Последняя игра</div>
+      <div class="hval">
+        <div class="hav" id="lastAv" style="background:#9C27B0">NA</div>
+        <span id="lastNm">@narcissist</span>
+        <span class="hamt ton" id="lastAmt">+120 <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M28 56c15.464 0 28-12.536 28-28S43.464 0 28 0 0 12.536 0 28s12.536 28 28 28Z" fill="#0098EA"/><path d="M37.56 15.17H18.44c-3.38 0-5.37 3.78-3.44 6.53l13.12 18.6a2.13 2.13 0 0 0 3.5-.07l12.78-18.53c1.87-2.72-.09-6.43-3.4-6.53h-.44Zm-13.25 4.5H18.5a.63.63 0 0 1-.52-1l3.67-5.17h5.75l-3.09 6.17Zm12.44-.06h-5.58l-3.09-6.11h5.53l3.65 5.12a.63.63 0 0 1-.51.99Z" fill="#fff"/></svg></span>
       </div>
     </div>
   </div>
 
-  <!-- Arena Section -->
+  <div class="balance-bar">
+    <span>Баланс:</span>
+    <span class="balance-amount ton" id="balanceVal">1 000.00 <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M28 56c15.464 0 28-12.536 28-28S43.464 0 28 0 0 12.536 0 28s12.536 28 28 28Z" fill="#0098EA"/><path d="M37.56 15.17H18.44c-3.38 0-5.37 3.78-3.44 6.53l13.12 18.6a2.13 2.13 0 0 0 3.5-.07l12.78-18.53c1.87-2.72-.09-6.43-3.4-6.53h-.44Zm-13.25 4.5H18.5a.63.63 0 0 1-.52-1l3.67-5.17h5.75l-3.09 6.17Zm12.44-.06h-5.58l-3.09-6.11h5.53l3.65 5.12a.63.63 0 0 1-.51.99Z" fill="#fff"/></svg></span>
+  </div>
+
   <div class="arena-section">
     <div class="status-bar">
       <div class="total-pool">
         <span class="total-label">Тотал</span>
-        <span class="total-amount" id="totalAmount">0.0</span>
-        <span style="color: var(--ton-blue); font-size: 16px;">◈</span>
+        <span class="total-amt" id="totalAmt">0.0</span>
+        <span class="ton" style="color:var(--blue)"><svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M28 56c15.464 0 28-12.536 28-28S43.464 0 28 0 0 12.536 0 28s12.536 28 28 28Z" fill="#0098EA"/><path d="M37.56 15.17H18.44c-3.38 0-5.37 3.78-3.44 6.53l13.12 18.6a2.13 2.13 0 0 0 3.5-.07l12.78-18.53c1.87-2.72-.09-6.43-3.4-6.53h-.44Zm-13.25 4.5H18.5a.63.63 0 0 1-.52-1l3.67-5.17h5.75l-3.09 6.17Zm12.44-.06h-5.58l-3.09-6.11h5.53l3.65 5.12a.63.63 0 0 1-.51.99Z" fill="#fff"/></svg></span>
       </div>
       <div class="status-badge waiting" id="statusBadge">
-        <span id="statusText">Ожидание 0/2</span>
+        <span id="statusTxt">Ожидание 0/2</span>
       </div>
     </div>
-    <div class="arena-canvas-wrap">
-      <canvas id="arenaCanvas"></canvas>
+    <div class="arena-wrap">
+      <canvas id="arena"></canvas>
     </div>
   </div>
 
-  <!-- Footer -->
+  <!-- Player list -->
+  <div class="player-list" id="playerList"></div>
+
   <div class="footer">
-    <div class="footer-left">Игроки · <span id="playerCount">0</span></div>
-    <div class="footer-right">Игра <span id="roundId">#39253</span></div>
+    <div class="footer-l">Игроки · <span id="pCount">0</span></div>
+    <div class="footer-r">Игра <span id="rId">#39253</span></div>
   </div>
 
-  <!-- Bet Panel -->
   <div class="bet-panel">
     <div class="bet-form">
-      <div class="bet-input-wrap">
-        <input type="number" class="bet-input" id="betInput" 
-               placeholder="Сумма ставки" min="0.1" max="10000" step="0.1">
-        <span class="bet-ton-label">TON</span>
+      <div class="bet-iw">
+        <input type="number" class="bet-in" id="betIn" placeholder="Сумма ставки" min="0.1" max="10000" step="0.1">
+        <span class="bet-tl">TON</span>
       </div>
       <button class="bet-btn" id="betBtn">СТАВКА</button>
     </div>
     <div class="bet-presets">
-      <button class="bet-preset" data-amount="0.5">0.5</button>
-      <button class="bet-preset" data-amount="1">1</button>
-      <button class="bet-preset" data-amount="5">5</button>
-      <button class="bet-preset" data-amount="10">10</button>
-      <button class="bet-preset" data-amount="50">50</button>
+      <button class="bet-pre" data-a="0.5">0.5</button>
+      <button class="bet-pre" data-a="1">1</button>
+      <button class="bet-pre" data-a="5">5</button>
+      <button class="bet-pre" data-a="10">10</button>
+      <button class="bet-pre" data-a="50">50</button>
     </div>
   </div>
 </div>
 
-<!-- Winner Overlay -->
-<div class="winner-overlay" id="winnerOverlay">
-  <div class="winner-card">
-    <button class="winner-close" id="winnerClose">✕</button>
-    <div class="winner-crown">👑</div>
-    <div class="winner-name" id="winnerName">—</div>
-    <div class="winner-amount" id="winnerAmount">0 TON</div>
-    <div class="winner-multiplier" id="winnerMultiplier">1.00x</div>
+<div class="wov" id="wov">
+  <div class="wcard">
+    <button class="wcl" id="wcl">✕</button>
+    <div class="wcrown">👑</div>
+    <div class="wname" id="wname">—</div>
+    <div class="wamt" id="wamt">0 TON</div>
+    <div class="wmult" id="wmult">1.00x</div>
   </div>
 </div>
-
-<!-- Confetti container -->
-<div class="confetti-container" id="confettiContainer"></div>
+<div class="confetti" id="confetti"></div>
 
 <script>
-// ═══════════════════════════════════════════════════════════════
-// CLIENT — Crypto Roulette
-// ═══════════════════════════════════════════════════════════════
-
 const socket = io(window.location.origin);
-
-// ── Canvas Setup ──
-const canvas = document.getElementById('arenaCanvas');
+const canvas = document.getElementById('arena');
 const ctx = canvas.getContext('2d');
-let canvasSize = 0;
-let scale = 1;
-const ARENA_LOGICAL = 600; // matches server
+let canvasSize = 0, scale = 1;
+const ARENA = 600;
 
-function resizeCanvas() {
-  const wrap = canvas.parentElement;
-  const rect = wrap.getBoundingClientRect();
-  const size = Math.min(rect.width, rect.height);
-  canvasSize = size;
-  
+function resize() {
+  const r = canvas.parentElement.getBoundingClientRect();
+  const sz = Math.min(r.width, r.height);
+  canvasSize = sz;
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = size * dpr;
-  canvas.height = size * dpr;
-  canvas.style.width = size + 'px';
-  canvas.style.height = size + 'px';
+  canvas.width = sz * dpr; canvas.height = sz * dpr;
+  canvas.style.width = sz + 'px'; canvas.style.height = sz + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  scale = size / ARENA_LOGICAL;
+  scale = sz / ARENA;
 }
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
+window.addEventListener('resize', resize); resize();
 
-// ── State ──
-let state = null;
-let puckInterp = { x: 0, y: 0, vx: 0, vy: 0, spinAngle: 0 };
-let prevPuck = null;
-let lastPuckUpdate = 0;
-let myBetPlaced = false;
-let winnerShown = false;
+let state = null, pI = { x:0, y:0, vx:0, vy:0, spin:0 }, lastPU = 0;
+let myBet = false, winShown = false, balance = 1000;
 
-// ── Socket Events ──
-socket.on('game_state', (s) => {
+// TON icon SVG string for canvas
+const tonSVG = `<svg viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg"><circle cx="28" cy="28" r="28" fill="#0098EA"/><path d="M37.56 15.17H18.44c-3.38 0-5.37 3.78-3.44 6.53l13.12 18.6a2.13 2.13 0 003.5-.07l12.78-18.53c1.87-2.72-.09-6.43-3.4-6.53h-.44Zm-13.25 4.5H18.5a.63.63 0 01-.52-1l3.67-5.17h5.75l-3.09 6.17Zm12.44-.06h-5.58l-3.09-6.11h5.53l3.65 5.12a.63.63 0 01-.51.99Z" fill="#fff"/></svg>`;
+
+socket.on('game_state', s => {
   state = s;
+  if (s.puck) { pI = { x:s.puck.x, y:s.puck.y, vx:s.puck.vx, vy:s.puck.vy, spin:s.puck.spinAngle||0 }; lastPU = performance.now(); }
+  if (s.phase === 'result' && s.winner && !winShown) { winShown = true; showWin(s.winner); }
+  if (s.phase === 'waiting' || s.phase === 'countdown') { winShown = false; hideWin(); }
+  if (s.phase === 'waiting') { myBet = false; document.getElementById('betBtn').disabled = false; }
   updateUI(s);
-  
-  if (s.puck) {
-    prevPuck = { ...puckInterp };
-    puckInterp = {
-      x: s.puck.x,
-      y: s.puck.y,
-      vx: s.puck.vx,
-      vy: s.puck.vy,
-      spinAngle: s.puck.spinAngle || 0,
-    };
-    lastPuckUpdate = performance.now();
-  }
-  
-  if (s.phase === 'result' && s.winner && !winnerShown) {
-    winnerShown = true;
-    showWinner(s.winner);
-  }
-  
-  if (s.phase === 'waiting' || s.phase === 'countdown') {
-    winnerShown = false;
-    hideWinner();
-  }
-  
-  if (s.phase === 'waiting') {
-    myBetPlaced = false;
-    document.getElementById('betBtn').disabled = false;
-  }
 });
 
-socket.on('puck_update', (p) => {
-  prevPuck = { ...puckInterp };
-  puckInterp = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, spinAngle: p.spinAngle || 0 };
-  lastPuckUpdate = performance.now();
-});
+socket.on('puck_update', p => { pI = { x:p.x, y:p.y, vx:p.vx, vy:p.vy, spin:p.spinAngle||0 }; lastPU = performance.now(); });
+socket.on('bet_accepted', () => { myBet = true; const b = document.getElementById('betBtn'); b.disabled = true; b.textContent = '✓'; setTimeout(() => b.textContent = 'СТАВКА', 2000); });
+socket.on('balance_update', d => { balance = d.balance; document.getElementById('balanceVal').innerHTML = fmtN(balance) + ' ' + tonSVGSmall(); });
+socket.on('error', e => alert(e.message));
 
-socket.on('bet_accepted', () => {
-  myBetPlaced = true;
-  document.getElementById('betBtn').disabled = true;
-  document.getElementById('betBtn').textContent = '✓';
-  setTimeout(() => {
-    document.getElementById('betBtn').textContent = 'СТАВКА';
-  }, 2000);
-});
-
-socket.on('error', (e) => {
-  alert(e.message);
-});
-
-// ── UI Updates ──
-function updateUI(s) {
-  // Top game
-  document.getElementById('topName').textContent = truncName(s.topGame.name);
-  document.getElementById('topAmount').textContent = '+' + formatNum(s.topGame.amount) + ' ◈';
-  document.getElementById('topAvatar').textContent = s.topGame.initials || 'GO';
-  
-  // Last game
-  document.getElementById('lastName').textContent = truncName(s.lastGame.name);
-  document.getElementById('lastAmount').textContent = '+' + formatNum(s.lastGame.amount) + ' ◈';
-  document.getElementById('lastAvatar').textContent = s.lastGame.initials || '--';
-  
-  // Total pool
-  document.getElementById('totalAmount').textContent = formatNum(s.totalPool);
-  
-  // Status
-  const badge = document.getElementById('statusBadge');
-  const statusText = document.getElementById('statusText');
-  badge.className = 'status-badge';
-  
-  if (s.phase === 'waiting') {
-    badge.classList.add('waiting');
-    statusText.textContent = `Ожидание ${s.players.length}/2`;
-    badge.innerHTML = `<span id="statusText">${statusText.textContent}</span>`;
-  } else if (s.phase === 'countdown') {
-    badge.classList.add('countdown');
-    const padded = String(s.timer).padStart(2, '0');
-    badge.innerHTML = `<span id="statusText">Начало через 00:${padded}</span>`;
-  } else if (s.phase === 'spinning' || s.phase === 'live') {
-    badge.classList.add('live');
-    badge.innerHTML = `<span class="status-dot"></span><span id="statusText">В эфире</span>`;
-  } else if (s.phase === 'result') {
-    badge.classList.add('live');
-    badge.innerHTML = `<span class="status-dot"></span><span id="statusText">Результат</span>`;
-  } else {
-    badge.classList.add('waiting');
-    badge.innerHTML = `<span id="statusText">Пауза...</span>`;
-  }
-  
-  // Footer
-  document.getElementById('playerCount').textContent = s.players.length;
-  document.getElementById('roundId').textContent = '#' + s.roundId;
-  
-  // Bet button
-  const canBet = (s.phase === 'waiting' || s.phase === 'countdown') && !myBetPlaced;
-  document.getElementById('betBtn').disabled = !canBet;
+function tonSVGSmall() {
+  return `<svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:14px;height:14px;vertical-align:middle"><path d="M28 56c15.464 0 28-12.536 28-28S43.464 0 28 0 0 12.536 0 28s12.536 28 28 28Z" fill="#0098EA"/><path d="M37.56 15.17H18.44c-3.38 0-5.37 3.78-3.44 6.53l13.12 18.6a2.13 2.13 0 0 0 3.5-.07l12.78-18.53c1.87-2.72-.09-6.43-3.4-6.53h-.44Zm-13.25 4.5H18.5a.63.63 0 0 1-.52-1l3.67-5.17h5.75l-3.09 6.17Zm12.44-.06h-5.58l-3.09-6.11h5.53l3.65 5.12a.63.63 0 0 1-.51.99Z" fill="#fff"/></svg>`;
 }
 
-function truncName(name) {
-  return name.length > 14 ? name.substring(0, 13) + '…' : name;
-}
-
-function formatNum(n) {
-  if (n >= 1000) return n.toLocaleString('ru-RU', { maximumFractionDigits: 0 });
-  if (n >= 10) return n.toFixed(1);
+function fmtN(n) {
+  if (Math.abs(n) >= 1000) return n.toLocaleString('ru-RU', { maximumFractionDigits:0 });
+  if (Math.abs(n) >= 10) return n.toFixed(1);
   return n.toFixed(2);
 }
 
-// ── Bet Controls ──
+function trunc(n) { return n.length > 13 ? n.substring(0,12)+'…' : n; }
+
+function updateUI(s) {
+  document.getElementById('topNm').textContent = trunc(s.topGame.name);
+  document.getElementById('topAmt').innerHTML = '+' + fmtN(s.topGame.amount) + ' ' + tonSVGSmall();
+  document.getElementById('topAv').textContent = s.topGame.initials || 'GO';
+  document.getElementById('lastNm').textContent = trunc(s.lastGame.name);
+  document.getElementById('lastAmt').innerHTML = '+' + fmtN(s.lastGame.amount) + ' ' + tonSVGSmall();
+  document.getElementById('lastAv').textContent = s.lastGame.initials || '--';
+  document.getElementById('totalAmt').textContent = fmtN(s.totalPool);
+
+  const b = document.getElementById('statusBadge');
+  b.className = 'status-badge';
+  if (s.phase === 'waiting') { b.classList.add('waiting'); b.innerHTML = `<span>Ожидание ${s.players.length}/2</span>`; }
+  else if (s.phase === 'countdown') { b.classList.add('countdown'); b.innerHTML = `<span>Начало через 00:${String(s.timer).padStart(2,'0')}</span>`; }
+  else if (s.phase === 'spinning' || s.phase === 'live') { b.classList.add('live'); b.innerHTML = `<span class="sdot"></span><span>В эфире</span>`; }
+  else if (s.phase === 'result') { b.classList.add('live'); b.innerHTML = `<span class="sdot"></span><span>Результат</span>`; }
+  else { b.classList.add('waiting'); b.innerHTML = `<span>Пауза...</span>`; }
+
+  document.getElementById('pCount').textContent = s.players.length;
+  document.getElementById('rId').textContent = '#' + s.roundId;
+
+  const canBet = (s.phase === 'waiting' || s.phase === 'countdown') && !myBet;
+  document.getElementById('betBtn').disabled = !canBet;
+
+  // Player list sorted by bet descending
+  const list = document.getElementById('playerList');
+  const sorted = [...s.players].sort((a, b) => b.bet - a.bet);
+  list.innerHTML = sorted.map(p =>
+    `<div class="pli"><div class="pli-dot" style="background:${p.color}"></div><div class="pli-name">${trunc(p.name)}</div><div class="pli-bet">${fmtN(p.bet)} TON</div></div>`
+  ).join('');
+}
+
+// ── Bet ──
 document.getElementById('betBtn').addEventListener('click', () => {
-  const input = document.getElementById('betInput');
-  const bet = parseFloat(input.value);
-  if (!bet || bet < 0.1) {
-    input.focus();
-    return;
-  }
-  socket.emit('place_bet', {
-    name: '@player_' + Math.random().toString(36).substr(2, 5),
-    bet,
-    avatar: null,
-  });
+  const v = parseFloat(document.getElementById('betIn').value);
+  if (!v || v < 0.1) { document.getElementById('betIn').focus(); return; }
+  socket.emit('place_bet', { name: '@player_' + Math.random().toString(36).substr(2,5), bet: v, avatar: null });
 });
+document.querySelectorAll('.bet-pre').forEach(b => b.addEventListener('click', () => document.getElementById('betIn').value = b.dataset.a));
 
-document.querySelectorAll('.bet-preset').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.getElementById('betInput').value = btn.dataset.amount;
-  });
-});
-
-// ── Winner Popup ──
-function showWinner(w) {
-  document.getElementById('winnerName').textContent = w.name;
-  document.getElementById('winnerAmount').textContent = formatNum(w.amount) + ' TON';
-  document.getElementById('winnerMultiplier').textContent = w.multiplier.toFixed(2) + 'x';
-  document.getElementById('winnerOverlay').classList.add('show');
-  spawnConfetti();
-  
-  setTimeout(() => hideWinner(), 4000);
+// ── Winner ──
+function showWin(w) {
+  document.getElementById('wname').textContent = w.name;
+  document.getElementById('wamt').textContent = fmtN(w.amount) + ' TON';
+  document.getElementById('wmult').textContent = w.multiplier.toFixed(2) + 'x';
+  document.getElementById('wov').classList.add('show');
+  confetti(); setTimeout(hideWin, 4000);
 }
+function hideWin() { document.getElementById('wov').classList.remove('show'); }
+document.getElementById('wcl').addEventListener('click', hideWin);
 
-function hideWinner() {
-  document.getElementById('winnerOverlay').classList.remove('show');
-}
-
-document.getElementById('winnerClose').addEventListener('click', hideWinner);
-
-// ── Confetti ──
-function spawnConfetti() {
-  const container = document.getElementById('confettiContainer');
-  container.innerHTML = '';
-  const colors = ['#FF6B6B','#4ECDC4','#FFD740','#448AFF','#FF5252','#00E676','#E040FB','#FF9100'];
-  
+function confetti() {
+  const c = document.getElementById('confetti'); c.innerHTML = '';
+  const cols = ['#FF6B6B','#4ECDC4','#FFD740','#448AFF','#FF5252','#00E676','#E040FB','#FF9100'];
   for (let i = 0; i < 60; i++) {
-    const piece = document.createElement('div');
-    piece.className = 'confetti-piece';
-    piece.style.left = Math.random() * 100 + '%';
-    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
-    piece.style.width = (6 + Math.random() * 8) + 'px';
-    piece.style.height = (6 + Math.random() * 8) + 'px';
-    piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
-    piece.style.animationDuration = (2 + Math.random() * 2) + 's';
-    piece.style.animationDelay = Math.random() * 0.8 + 's';
-    container.appendChild(piece);
+    const p = document.createElement('div'); p.className = 'cp';
+    p.style.left = Math.random()*100+'%'; p.style.background = cols[Math.floor(Math.random()*cols.length)];
+    p.style.width = (6+Math.random()*8)+'px'; p.style.height = (6+Math.random()*8)+'px';
+    p.style.borderRadius = Math.random()>.5?'50%':'2px';
+    p.style.animationDuration = (2+Math.random()*2)+'s'; p.style.animationDelay = Math.random()*.8+'s';
+    c.appendChild(p);
   }
-  
-  setTimeout(() => { container.innerHTML = ''; }, 5000);
+  setTimeout(() => c.innerHTML = '', 5000);
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CANVAS RENDERING — Main render loop
+// CANVAS RENDER
 // ═══════════════════════════════════════════════════════════════
-
 function render() {
   requestAnimationFrame(render);
   if (!state) return;
-  
   const s = scale;
   ctx.clearRect(0, 0, canvasSize, canvasSize);
-  
-  // ── Draw sectors ──
+
+  // ── Sectors ──
   if (state.sectors && state.sectors.length > 0) {
-    state.sectors.forEach((sec, i) => {
-      const x = sec.x * s;
-      const y = sec.y * s;
-      const w = sec.w * s;
-      const h = sec.h * s;
-      
-      // Sector fill
-      ctx.fillStyle = sec.color;
-      ctx.globalAlpha = 0.85;
-      ctx.fillRect(x, y, w, h);
+    state.sectors.forEach(sec => {
+      const x = sec.x*s, y = sec.y*s, w = sec.w*s, h = sec.h*s;
+
+      // Fill with slight gradient
+      const grd = ctx.createLinearGradient(x, y, x+w, y+h);
+      grd.addColorStop(0, sec.color);
+      grd.addColorStop(1, shadeColor(sec.color, -20));
+      ctx.fillStyle = grd;
+      ctx.globalAlpha = 0.88;
+      ctx.beginPath();
+      ctx.roundRect(x+1, y+1, w-2, h-2, Math.min(4, Math.min(w,h)*0.08));
+      ctx.fill();
       ctx.globalAlpha = 1;
-      
+
       // Border
-      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
       ctx.lineWidth = 1.5;
-      ctx.strokeRect(x, y, w, h);
-      
-      // Highlight winner sector
+      ctx.stroke();
+
+      // Winner glow
       if (state.phase === 'result' && state.winner && state.winner.sectorId === sec.playerId) {
+        ctx.save();
         ctx.strokeStyle = '#FFD740';
         ctx.lineWidth = 3;
-        ctx.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
-        ctx.shadowColor = '#FFD740';
-        ctx.shadowBlur = 15;
-        ctx.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
-        ctx.shadowBlur = 0;
+        ctx.shadowColor = '#FFD740'; ctx.shadowBlur = 20;
+        ctx.beginPath(); ctx.roundRect(x+2, y+2, w-4, h-4, 4); ctx.stroke();
+        ctx.restore();
       }
-      
-      // Avatar circle & name (only if sector is big enough)
-      const minDim = Math.min(w, h);
-      if (minDim > 30) {
-        const cx = x + w / 2;
-        const cy = y + h / 2;
-        const avatarR = Math.min(minDim * 0.28, 28);
+
+      // Avatar + name
+      const minD = Math.min(w, h);
+      if (minD > 28) {
+        const cx = x+w/2, cy = y+h/2;
+        const ar = Math.min(minD * 0.26, 26);
         
-        // Avatar circle
-        ctx.beginPath();
-        ctx.arc(cx, cy - (minDim > 60 ? 6 : 0), avatarR, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0,0,0,0.35)';
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(cx, cy-(minD>55?5:0), ar, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fill();
+        ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1.5; ctx.stroke();
         
-        // Initials
         ctx.fillStyle = '#fff';
-        ctx.font = `bold ${Math.max(avatarR * 0.7, 8)}px 'Unbounded', sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(sec.initials || '??', cx, cy - (minDim > 60 ? 6 : 0));
-        
-        // Name under avatar
-        if (minDim > 60) {
-          ctx.fillStyle = 'rgba(255,255,255,0.9)';
-          ctx.font = `600 ${Math.max(8, Math.min(11, w * 0.07))}px 'JetBrains Mono', monospace`;
-          ctx.fillText(
-            truncName(sec.name),
-            cx,
-            cy + avatarR + 4
-          );
+        ctx.font = `bold ${Math.max(ar*.65, 7)}px 'Unbounded',sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(sec.initials||'??', cx, cy-(minD>55?5:0));
+
+        if (minD > 55) {
+          ctx.fillStyle = 'rgba(255,255,255,.85)';
+          ctx.font = `600 ${Math.max(7, Math.min(10, w*.065))}px 'JetBrains Mono',monospace`;
+          ctx.fillText(trunc(sec.name), cx, cy+ar+3);
         }
-        
-        // Percent in corner
-        if (minDim > 50) {
-          ctx.fillStyle = 'rgba(255,255,255,0.5)';
-          ctx.font = `600 9px 'JetBrains Mono', monospace`;
-          ctx.textAlign = 'left';
-          ctx.textBaseline = 'top';
-          ctx.fillText(sec.percent + '%', x + 5, y + 4);
+        if (minD > 45) {
+          ctx.fillStyle = 'rgba(255,255,255,.45)';
+          ctx.font = `600 8px 'JetBrains Mono',monospace`;
+          ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+          ctx.fillText(sec.percent+'%', x+4, y+3);
         }
       }
     });
   } else {
-    // Empty arena — gradient placeholder
-    const grad = ctx.createLinearGradient(0, 0, canvasSize, canvasSize);
-    grad.addColorStop(0, '#1a1a2e');
-    grad.addColorStop(1, '#16213e');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, canvasSize, canvasSize);
-    
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    ctx.font = `700 20px 'Unbounded', sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('Ожидание ставок...', canvasSize / 2, canvasSize / 2);
+    const g = ctx.createLinearGradient(0,0,canvasSize,canvasSize);
+    g.addColorStop(0,'#1a1a2e'); g.addColorStop(1,'#16213e');
+    ctx.fillStyle = g; ctx.fillRect(0,0,canvasSize,canvasSize);
+    ctx.fillStyle = 'rgba(255,255,255,.08)';
+    ctx.font = `700 18px 'Unbounded',sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Ожидание ставок...', canvasSize/2, canvasSize/2);
   }
-  
-  // ── Draw puck ──
+
+  // ── Puck ──
   if (state.puck) {
-    // Interpolate puck position
     const now = performance.now();
-    const dt = Math.min((now - lastPuckUpdate) / (1000 / 30), 1); // 30fps updates
-    
-    let px, py;
-    if (state.puck.launched) {
-      // Client-side prediction
-      px = puckInterp.x + puckInterp.vx * dt;
-      py = puckInterp.y + puckInterp.vy * dt;
-    } else {
-      px = puckInterp.x;
-      py = puckInterp.y;
+    const dt = Math.min((now - lastPU) / (1000/30), 1.5);
+    let px = state.puck.launched ? pI.x + pI.vx * dt : pI.x;
+    let py = state.puck.launched ? pI.y + pI.vy * dt : pI.y;
+    const sx = px * s, sy = py * s;
+    const pr = (state.puck.radius || 18) * s;
+    const speed = Math.sqrt(pI.vx**2 + pI.vy**2);
+
+    // Outer glow
+    if (speed > 1) {
+      ctx.save();
+      ctx.shadowColor = `rgba(255,255,255,${Math.min(speed/15,.6)})`;
+      ctx.shadowBlur = 12 + Math.min(speed, 15) * 2;
+      ctx.beginPath(); ctx.arc(sx, sy, pr*.6, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,0.01)'; ctx.fill();
+      ctx.restore();
     }
-    
-    const screenX = px * s;
-    const screenY = py * s;
-    const puckR = (state.puck.radius || 12) * s;
-    
-    // Glow
-    const speed = Math.sqrt(puckInterp.vx * puckInterp.vx + puckInterp.vy * puckInterp.vy);
-    const glowIntensity = Math.min(speed / 15, 1);
-    
-    if (glowIntensity > 0.1) {
-      ctx.shadowColor = `rgba(255, 255, 255, ${glowIntensity * 0.5})`;
-      ctx.shadowBlur = 15 + glowIntensity * 20;
+
+    // Speed trail
+    if (state.puck.launched && speed > 2.5) {
+      const tLen = Math.min(speed * 2.5, 45) * s;
+      const ang = Math.atan2(-pI.vy, -pI.vx);
+      const tg = ctx.createLinearGradient(sx, sy, sx+Math.cos(ang)*tLen, sy+Math.sin(ang)*tLen);
+      tg.addColorStop(0, `rgba(255,255,255,${Math.min(speed/18,.35)})`);
+      tg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.beginPath();
+      ctx.moveTo(sx+Math.cos(ang+.25)*pr, sy+Math.sin(ang+.25)*pr);
+      ctx.lineTo(sx+Math.cos(ang)*tLen, sy+Math.sin(ang)*tLen);
+      ctx.lineTo(sx+Math.cos(ang-.25)*pr, sy+Math.sin(ang-.25)*pr);
+      ctx.closePath(); ctx.fillStyle = tg; ctx.fill();
     }
-    
-    // Puck body
-    const puckGrad = ctx.createRadialGradient(
-      screenX - puckR * 0.2, screenY - puckR * 0.2, 0,
-      screenX, screenY, puckR
-    );
-    puckGrad.addColorStop(0, '#ffffff');
-    puckGrad.addColorStop(0.5, '#e0e0e0');
-    puckGrad.addColorStop(1, '#999999');
-    
-    ctx.beginPath();
-    ctx.arc(screenX, screenY, puckR, 0, Math.PI * 2);
-    ctx.fillStyle = puckGrad;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    
+
+    // Puck body — metallic look
+    const pg = ctx.createRadialGradient(sx-pr*.2, sy-pr*.25, 0, sx, sy, pr);
+    pg.addColorStop(0, '#ffffff'); pg.addColorStop(0.3, '#f0f0f0');
+    pg.addColorStop(0.6, '#cccccc'); pg.addColorStop(1, '#888888');
+    ctx.beginPath(); ctx.arc(sx, sy, pr, 0, Math.PI*2);
+    ctx.fillStyle = pg; ctx.fill();
+
+    // Outer ring
+    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2; ctx.stroke();
+
     // Inner ring
+    ctx.beginPath(); ctx.arc(sx, sy, pr*.6, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(80,80,80,.5)'; ctx.lineWidth = 1; ctx.stroke();
+
+    // CROSSHAIR — крестик по центру
+    const chLen = pr * 0.55;
     ctx.beginPath();
-    ctx.arc(screenX, screenY, puckR * 0.5, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(100,100,100,0.5)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    
-    // Spinning indicator (before launch)
+    ctx.moveTo(sx - chLen, sy); ctx.lineTo(sx + chLen, sy);
+    ctx.moveTo(sx, sy - chLen); ctx.lineTo(sx, sy + chLen);
+    ctx.strokeStyle = 'rgba(255, 50, 50, 0.85)';
+    ctx.lineWidth = 2; ctx.stroke();
+
+    // Small center dot
+    ctx.beginPath(); ctx.arc(sx, sy, 2.5, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255, 50, 50, 0.9)'; ctx.fill();
+
+    // ── Spinning arrow (before launch) ──
     if (!state.puck.launched && state.phase === 'spinning') {
-      const spinT = (now / 100) % (Math.PI * 2);
-      const arrowLen = puckR * 2.5;
-      const ax = screenX + Math.cos(spinT) * arrowLen;
-      const ay = screenY + Math.sin(spinT) * arrowLen;
+      const now2 = performance.now();
+      // Fast accelerating spin
+      const spinT = (now2 / 60) % (Math.PI * 2);
+      const arLen = pr * 3;
+      
+      // Main arrow line
+      const ax = sx + Math.cos(spinT) * arLen;
+      const ay = sy + Math.sin(spinT) * arLen;
+      
+      // Gradient line
+      const lg = ctx.createLinearGradient(sx, sy, ax, ay);
+      lg.addColorStop(0, 'rgba(255,215,64,0.2)');
+      lg.addColorStop(0.5, 'rgba(255,215,64,0.7)');
+      lg.addColorStop(1, 'rgba(255,215,64,1)');
       
       ctx.beginPath();
-      ctx.moveTo(screenX, screenY);
+      ctx.moveTo(sx + Math.cos(spinT) * pr * 1.2, sy + Math.sin(spinT) * pr * 1.2);
       ctx.lineTo(ax, ay);
-      ctx.strokeStyle = 'rgba(255, 215, 64, 0.8)';
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([4, 4]);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      ctx.strokeStyle = lg; ctx.lineWidth = 3;
+      ctx.lineCap = 'round'; ctx.stroke(); ctx.lineCap = 'butt';
       
-      // Arrowhead
-      const angle = Math.atan2(ay - screenY, ax - screenX);
+      // Arrowhead — bigger and filled
+      const aAngle = Math.atan2(ay - sy, ax - sx);
+      const headLen = 14;
       ctx.beginPath();
       ctx.moveTo(ax, ay);
-      ctx.lineTo(ax - 8 * Math.cos(angle - 0.4), ay - 8 * Math.sin(angle - 0.4));
-      ctx.lineTo(ax - 8 * Math.cos(angle + 0.4), ay - 8 * Math.sin(angle + 0.4));
+      ctx.lineTo(ax - headLen * Math.cos(aAngle - 0.35), ay - headLen * Math.sin(aAngle - 0.35));
+      ctx.lineTo(ax - headLen * 0.6 * Math.cos(aAngle), ay - headLen * 0.6 * Math.sin(aAngle));
+      ctx.lineTo(ax - headLen * Math.cos(aAngle + 0.35), ay - headLen * Math.sin(aAngle + 0.35));
       ctx.closePath();
-      ctx.fillStyle = 'rgba(255, 215, 64, 0.9)';
-      ctx.fill();
-    }
-    
-    // Speed trail
-    if (state.puck.launched && speed > 2) {
-      const trailLen = Math.min(speed * 3, 50) * s;
-      const angle = Math.atan2(-puckInterp.vy, -puckInterp.vx);
-      const trailGrad = ctx.createLinearGradient(
-        screenX, screenY,
-        screenX + Math.cos(angle) * trailLen,
-        screenY + Math.sin(angle) * trailLen
-      );
-      trailGrad.addColorStop(0, `rgba(255,255,255,${Math.min(speed / 20, 0.4)})`);
-      trailGrad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = 'rgba(255,215,64,0.95)'; ctx.fill();
       
-      ctx.beginPath();
-      ctx.moveTo(
-        screenX + Math.cos(angle + 0.3) * puckR,
-        screenY + Math.sin(angle + 0.3) * puckR
-      );
-      ctx.lineTo(
-        screenX + Math.cos(angle) * trailLen,
-        screenY + Math.sin(angle) * trailLen
-      );
-      ctx.lineTo(
-        screenX + Math.cos(angle - 0.3) * puckR,
-        screenY + Math.sin(angle - 0.3) * puckR
-      );
-      ctx.closePath();
-      ctx.fillStyle = trailGrad;
-      ctx.fill();
+      // Secondary ghost arrows (trailing)
+      for (let g = 1; g <= 3; g++) {
+        const gAngle = spinT - g * 0.4;
+        const gLen = arLen * (1 - g * 0.15);
+        const gx = sx + Math.cos(gAngle) * gLen;
+        const gy = sy + Math.sin(gAngle) * gLen;
+        ctx.beginPath();
+        ctx.moveTo(sx + Math.cos(gAngle) * pr * 1.2, sy + Math.sin(gAngle) * pr * 1.2);
+        ctx.lineTo(gx, gy);
+        ctx.strokeStyle = `rgba(255,215,64,${0.3 - g * 0.08})`;
+        ctx.lineWidth = 2; ctx.stroke();
+      }
     }
   }
 }
 
-requestAnimationFrame(render);
+function shadeColor(color, percent) {
+  let R = parseInt(color.substring(1,3),16);
+  let G = parseInt(color.substring(3,5),16);
+  let B = parseInt(color.substring(5,7),16);
+  R = Math.max(0,Math.min(255,R + Math.round(R * percent / 100)));
+  G = Math.max(0,Math.min(255,G + Math.round(G * percent / 100)));
+  B = Math.max(0,Math.min(255,B + Math.round(B * percent / 100)));
+  return '#'+(R<16?'0':'')+R.toString(16)+(G<16?'0':'')+G.toString(16)+(B<16?'0':'')+B.toString(16);
+}
 
-// Handle window resize
-setTimeout(resizeCanvas, 100);
-setTimeout(resizeCanvas, 500);
+requestAnimationFrame(render);
+setTimeout(resize, 100); setTimeout(resize, 500);
 </script>
 </body>
 </html>
