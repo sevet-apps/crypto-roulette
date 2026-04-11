@@ -262,7 +262,6 @@ function endRound() {
     gameState.winner={name:ws.name,initials:ws.initials,color:ws.color,
       amount:winAmount,bet,multiplier:mult,profit,percent:pct,sectorId:ws.playerId};
 
-    // Возвращаем ставку + профит реальному игроку
     if(!ws.playerId.startsWith('bot_')&&playerBalances.has(ws.playerId)){
       // winAmount = ставка + чистый профит - комиссия, зачисляем всё
       const newBal=Math.round((playerBalances.get(ws.playerId)+winAmount)*100)/100;
