@@ -110,7 +110,7 @@ function bcast(){io.emit('gs',{ph:G.phase,rid:G.rid,
 
 io.on('connection',sk=>{
   console.log(`[+] ${sk.id}`);
-  sk.on('restore_bal',d=>{if(typeof d.b==='number'&&d.b>=0&&!pBal.has(sk.id))pBal.set(sk.id,Math.round(d.b*100)/100);
+  sk.on('restore_bal',d=>{if(typeof d.b==='number'&&d.b>=0){pBal.set(sk.id,Math.round(d.b*100)/100);}
     if(!pBal.has(sk.id))pBal.set(sk.id,C.INIT_BAL);sk.emit('bal',{b:pBal.get(sk.id)});});
   if(!pBal.has(sk.id))pBal.set(sk.id,C.INIT_BAL);
   sk.emit('bal',{b:pBal.get(sk.id)});bcast();
