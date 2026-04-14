@@ -260,13 +260,26 @@ function render(){requestAnimationFrame(render);if(!S)return;var s=sc;
       if(fi3>0){var prev=traj[fi3-1],aa=Math.atan2(prev[1]-pkPos.y,prev[0]-pkPos.x),tL=Math.min(sp*1.5,40)*s;
         var tg=cx.createLinearGradient(sx,sy,sx+Math.cos(aa)*tL,sy+Math.sin(aa)*tL);tg.addColorStop(0,'rgba(0,152,234,'+Math.min(sp/25,.2)+')');tg.addColorStop(1,'rgba(0,152,234,0)');
         cx.beginPath();cx.moveTo(sx+Math.cos(aa+.2)*pr,sy+Math.sin(aa+.2)*pr);cx.lineTo(sx+Math.cos(aa)*tL,sy+Math.sin(aa)*tL);cx.lineTo(sx+Math.cos(aa-.2)*pr,sy+Math.sin(aa-.2)*pr);cx.closePath();cx.fillStyle=tg;cx.fill();}}
-    // Arrow — spins once, decelerates, stops at final angle, THEN puck launches
+    // Arrow — spins, decelerates, lands exactly on trajectory angle
     if(S.ph==='spinning'){
-      if(spinStart===0){spinStart=now;spinAngle=Math.random()*Math.PI*2;spinSpeed=0.35;arrowStopped=false;}
-      var el4=(now-spinStart)/1000,prog=Math.min(el4/4.0,1); // 4 seconds total spin
-      var curSpeed=spinSpeed*Math.pow(1-prog,3); // cubic deceleration
-      if(curSpeed<0.002){curSpeed=0;if(!arrowStopped){arrowStopped=true;spinAngle=S.angle||spinAngle;}} // snap to final
-      else{spinAngle+=curSpeed;}
+      if(spinStart===0){
+        spinStart=now;
+        arrowStopped=false;
+        // Start from random angle, target = server angle + extra full rotations for visual spin
+        var startA=Math.random()*Math.PI*2;
+        var targetA=(S.angle||0)+Math.PI*2*6; // 6 full extra rotations
+        // Ensure we spin forward (targetA > startA)
+        while(targetA<startA+Math.PI*4)targetA+=Math.PI*2;
+        spinAngle=startA;
+        // Store for interpolation
+        window._spinStartA=startA;
+        window._spinTargetA=targetA;
+      }
+      var el4=(now-spinStart)/1000,prog=Math.min(el4/4.2,1); // 4.2 sec
+      // Ease out cubic — smooth deceleration that lands exactly on target
+      var eased=1-Math.pow(1-prog,3);
+      spinAngle=window._spinStartA+(window._spinTargetA-window._spinStartA)*eased;
+      if(prog>=1)arrowStopped=true;
       // Draw arrow
       var aL=pr*2.5,ax=sx+Math.cos(spinAngle)*aL,ay=sy+Math.sin(spinAngle)*aL;
       var lg=cx.createLinearGradient(sx,sy,ax,ay);lg.addColorStop(0,'rgba(0,152,234,0.1)');lg.addColorStop(.5,'rgba(0,152,234,0.5)');lg.addColorStop(1,'rgba(0,152,234,1)');
