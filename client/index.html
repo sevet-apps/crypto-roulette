@@ -236,16 +236,46 @@ function render(){requestAnimationFrame(render);if(!S)return;var s=sc;
   cZ+=(tz-cZ)*.04;cX+=(tx-cX)*.04;cY+=(ty-cY)*.04;
   cx.clearRect(0,0,csz,csz);cx.save();
   if(cZ>1.01){var c2=cX*s,c3=cY*s;cx.translate(c2,c3);cx.scale(cZ,cZ);cx.translate(-c2,-c3);}
-  if(S.sec&&S.sec.length){S.sec.forEach(function(sec){var x=sec.x*s,y=sec.y*s,w=sec.w*s,h=sec.h*s;
-    var g=cx.createLinearGradient(x,y,x+w,y+h);g.addColorStop(0,sec.color);g.addColorStop(1,shade(sec.color,-20));
-    cx.fillStyle=g;cx.globalAlpha=.85;cx.beginPath();cx.roundRect(x+.5,y+.5,w-1,h-1,Math.min(6,Math.min(w,h)*.06));cx.fill();
-    cx.globalAlpha=1;cx.strokeStyle='rgba(0,0,0,.4)';cx.lineWidth=1;cx.stroke();
-    if(S.ph==='result'&&S.w&&S.w.sid===sec.pid){cx.save();cx.strokeStyle='#0098EA';cx.lineWidth=3;cx.shadowColor='#0098EA';cx.shadowBlur=20;cx.beginPath();cx.roundRect(x+2,y+2,w-4,h-4,4);cx.stroke();cx.restore();}
-    var mn=Math.min(w,h);if(mn>26){var cx2=x+w/2,cy2=y+h/2,ar=Math.min(mn*.24,24);cx.beginPath();cx.arc(cx2,cy2-(mn>50?4:0),ar,0,Math.PI*2);cx.fillStyle='rgba(0,0,0,.4)';cx.fill();cx.strokeStyle='rgba(255,255,255,.15)';cx.lineWidth=1.5;cx.stroke();
+  if(S.sec&&S.sec.length){S.sec.forEach(function(sec){
+    // Draw polygon sector
+    var poly=sec.poly;
+    if(poly&&poly.length>2){
+      cx.beginPath();cx.moveTo(poly[0][0]*s,poly[0][1]*s);
+      for(var pi=1;pi<poly.length;pi++)cx.lineTo(poly[pi][0]*s,poly[pi][1]*s);
+      cx.closePath();
+      // Gradient from center outward
+      var gcx=sec.cx*s,gcy=sec.cy*s;
+      var g=cx.createRadialGradient(csz/2,csz/2,0,gcx,gcy,csz*.7);
+      g.addColorStop(0,sec.color);g.addColorStop(1,shade(sec.color,-25));
+      cx.fillStyle=g;cx.globalAlpha=.88;cx.fill();
+      cx.globalAlpha=1;cx.strokeStyle='rgba(0,0,0,.5)';cx.lineWidth=1.5;cx.stroke();
+      // Winner glow
+      if(S.ph==='result'&&S.w&&S.w.sid===sec.pid){cx.save();cx.strokeStyle='#0098EA';cx.lineWidth=3;cx.shadowColor='#0098EA';cx.shadowBlur=20;cx.beginPath();cx.moveTo(poly[0][0]*s,poly[0][1]*s);for(var pi2=1;pi2<poly.length;pi2++)cx.lineTo(poly[pi2][0]*s,poly[pi2][1]*s);cx.closePath();cx.stroke();cx.restore();}
+    } else {
+      // Fallback rect
+      var x=sec.x*s,y=sec.y*s,w=sec.w*s,h=sec.h*s;
+      cx.fillStyle=sec.color;cx.globalAlpha=.88;cx.fillRect(x,y,w,h);cx.globalAlpha=1;
+    }
+    // Labels at centroid
+    var lcx=sec.cx*s,lcy=sec.cy*s;
+    var area=sec.w*sec.h*s*s;var mn=Math.min(sec.w*s,sec.h*s);
+    var pctNum=parseFloat(sec.pct);
+    if(pctNum>2){
+      var ar=Math.min(Math.sqrt(area)*.12,24);
+      // Avatar circle
+      cx.beginPath();cx.arc(lcx,lcy-((pctNum>8)?4:0),ar,0,Math.PI*2);cx.fillStyle='rgba(0,0,0,.4)';cx.fill();cx.strokeStyle='rgba(255,255,255,.2)';cx.lineWidth=1.5;cx.stroke();
+      // Initials
       cx.fillStyle='#fff';cx.font='800 '+Math.max(ar*.6,7)+'px Outfit,sans-serif';cx.textAlign='center';cx.textBaseline='middle';var me=sec.pid===mySID;
-      cx.fillText(me?'ВЫ':(sec.ini||'??'),cx2,cy2-(mn>50?4:0));
-      if(mn>50){cx.fillStyle='rgba(255,255,255,.75)';cx.font='600 '+Math.max(7,Math.min(9,w*.055))+'px Inter,sans-serif';cx.fillText(me?'You':tr(sec.name),cx2,cy2+ar+2);}
-      if(mn>40){cx.fillStyle='rgba(255,255,255,.35)';cx.font='600 7px Inter,sans-serif';cx.textAlign='left';cx.textBaseline='top';cx.fillText(sec.pct+'%',x+3,y+2);}}});}
+      cx.fillText(me?'ВЫ':(sec.ini||'??'),lcx,lcy-((pctNum>8)?4:0));
+      // Name
+      if(pctNum>8){cx.fillStyle='rgba(255,255,255,.75)';cx.font='600 '+Math.max(7,Math.min(10,ar*.5))+'px Inter,sans-serif';cx.fillText(me?'You':tr(sec.name),lcx,lcy+ar+2);}
+      // Percent
+      if(pctNum>3){cx.fillStyle='rgba(255,255,255,.4)';cx.font='600 7px Inter,sans-serif';cx.textAlign='center';cx.textBaseline='top';cx.fillText(sec.pct+'%',lcx,lcy-ar-10);}
+    } else if(pctNum>0.5) {
+      // Small sector — just a dot
+      cx.beginPath();cx.arc(lcx,lcy,4,0,Math.PI*2);cx.fillStyle='rgba(255,255,255,.5)';cx.fill();
+    }
+  });}
   else{cx.fillStyle='#0a0a12';cx.fillRect(0,0,csz,csz);cx.fillStyle='rgba(255,255,255,.06)';cx.font='700 16px Outfit,sans-serif';cx.textAlign='center';cx.textBaseline='middle';cx.fillText('Ожидание ставок...',csz/2,csz/2);}
   var showPuck=S.ph==='spinning'||S.ph==='live'||(S.ph==='result'&&traj);
   if(showPuck&&S.spawn){var now=performance.now(),sx=pkPos.x*s,sy=pkPos.y*s,pr=(S.r||16)*s;

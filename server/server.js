@@ -21,17 +21,62 @@ let G={ph:'waiting',rid:0,pl:[],pool:0,timer:C.TIMER,ss:null,ps:null,sh:null,win
   top:{name:'—',ini:'—',amt:0},last:{name:'—',ini:'—',amt:0},traj:null,puckSpawn:null};
 let tI=null;
 
-function calcSec(pl,tp,sz){if(!pl.length)return[];const sec=[],so=[...pl].sort((a,b)=>b.bet-a.bet);
-  function sq(it,x,y,w,h){if(!it.length)return;if(it.length===1){const p=it[0];sec.push({pid:p.id,name:p.name,ini:p.ini,color:p.color,bet:p.bet,pct:(p.bet/tp*100).toFixed(1),x,y,w,h,cx:x+w/2,cy:y+h/2});return;}
-    const tv=it.reduce((s,p)=>s+p.bet,0),vt=w>=h;let br=[it[0]],brt=Infinity;
-    for(let i=0;i<it.length;i++){const rw=it.slice(0,i+1),rv=rw.reduce((s,p)=>s+p.bet,0),st=vt?w*(rv/tv):h*(rv/tv);let wst=0;
-      for(const p of rw){const pf=p.bet/rv,cw=vt?st:w*pf,ch=vt?h*pf:st;wst=Math.max(wst,Math.max(cw/Math.max(ch,.1),ch/Math.max(cw,.1)));}
-      if(wst<=brt||i===0){brt=wst;br=rw;}else break;}
-    const rv=br.reduce((s,p)=>s+p.bet,0),st=vt?w*(rv/tv):h*(rv/tv);let off=0;
-    for(const p of br){const pf=p.bet/rv,cl=vt?h*pf:w*pf,sx=vt?x:x+off,sy=vt?y+off:y,sw=vt?st:cl,sh=vt?cl:st;
-      sec.push({pid:p.id,name:p.name,ini:p.ini,color:p.color,bet:p.bet,pct:(p.bet/tp*100).toFixed(1),x:sx,y:sy,w:sw,h:sh,cx:sx+sw/2,cy:sy+sh/2});off+=cl;}
-    const rest=it.slice(br.length);if(rest.length){if(vt)sq(rest,x+st,y,w-st,h);else sq(rest,x,y+st,w,h-st);}}
-  sq(so,0,0,sz,sz);return sec;}
+function calcSec(pl,tp,sz){if(!pl.length)return[];
+  const so=[...pl].sort((a,b)=>b.bet-a.bet);
+  const sec=[];
+  const cx=sz/2,cy=sz/2;
+  // Create angular sectors from the square boundary
+  // Each player gets an angular slice proportional to their bet
+  let angleStart=0;
+  for(let i=0;i<so.length;i++){
+    const p=so[i];
+    const angleFrac=p.bet/tp;
+    const angleEnd=angleStart+angleFrac*Math.PI*2;
+    // Create polygon points: center + arc points clipped to square
+    const pts=[];
+    const steps=Math.max(3,Math.round(angleFrac*24)); // more points for larger sectors
+    // Add center point
+    // For visual variety: large sectors extend from center, small ones are edge triangles
+    const innerR=0; // all sectors touch center
+    for(let j=0;j<=steps;j++){
+      const a=angleStart+(angleEnd-angleStart)*(j/steps);
+      // Ray from center — find intersection with square boundary
+      const dx=Math.cos(a),dy=Math.sin(a);
+      let t=Infinity;
+      // Intersect with 4 edges of square (0,0)-(sz,sz)
+      if(dx>0)t=Math.min(t,(sz-cx)/dx);
+      if(dx<0)t=Math.min(t,-cx/dx);
+      if(dy>0)t=Math.min(t,(sz-cy)/dy);
+      if(dy<0)t=Math.min(t,-cy/dy);
+      pts.push([cx+dx*t, cy+dy*t]);
+    }
+    // Close with center
+    pts.push([cx,cy]);
+    // Calculate centroid for label placement
+    let pcx=0,pcy=0;
+    const midA=(angleStart+angleEnd)/2;
+    const midDx=Math.cos(midA),midDy=Math.sin(midA);
+    let midT=Infinity;
+    if(midDx>0)midT=Math.min(midT,(sz-cx)/midDx);
+    if(midDx<0)midT=Math.min(midT,-cx/midDx);
+    if(midDy>0)midT=Math.min(midT,(sz-cy)/midDy);
+    if(midDy<0)midT=Math.min(midT,-cy/midDy);
+    pcx=cx+midDx*midT*0.55; // label at 55% from center to edge
+    pcy=cy+midDy*midT*0.55;
+    
+    sec.push({
+      pid:p.id,name:p.name,ini:p.ini,color:p.color,bet:p.bet,
+      pct:(p.bet/tp*100).toFixed(1),
+      poly:pts, // polygon points array
+      cx:pcx,cy:pcy, // centroid for label
+      // Keep x,y,w,h for backward compat (bounding box)
+      x:Math.min(...pts.map(p2=>p2[0])),y:Math.min(...pts.map(p2=>p2[1])),
+      w:Math.max(...pts.map(p2=>p2[0]))-Math.min(...pts.map(p2=>p2[0])),
+      h:Math.max(...pts.map(p2=>p2[1]))-Math.min(...pts.map(p2=>p2[1]))
+    });
+    angleStart=angleEnd;
+  }
+  return sec;}
 
 // Generate trajectory from specific parameters
 function genTraj(x0,y0,angle,speed){
@@ -50,10 +95,17 @@ function calcTrajRandom(){
   const t=genTraj(x0,y0,angle,speed);t.angle=angle;return t;}
 
 // Find which sector a point lands on
+// Point-in-polygon (ray casting)
+function pip(px,py,poly){let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+  const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];
+  if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi))inside=!inside;}return inside;}
+
 function findSector(pt,sectors){
   if(!sectors.length)return null;
-  for(const s of sectors)if(pt[0]>=s.x&&pt[0]<=s.x+s.w&&pt[1]>=s.y&&pt[1]<=s.y+s.h)return s;
-  let mn=Infinity,c=sectors[0];for(const s of sectors){const d=(pt[0]-s.cx)**2+(pt[1]-s.cy)**2;if(d<mn){mn=d;c=s;}}return c;}
+  for(const s of sectors)if(s.poly&&pip(pt[0]||pt.x,pt[1]||pt.y,s.poly))return s;
+  // Fallback: bounding box
+  for(const s of sectors)if((pt[0]||pt.x)>=s.x&&(pt[0]||pt.x)<=s.x+s.w&&(pt[1]||pt.y)>=s.y&&(pt[1]||pt.y)<=s.y+s.h)return s;
+  let mn=Infinity,c=sectors[0];for(const s of sectors){const d=((pt[0]||pt.x)-s.cx)**2+((pt[1]||pt.y)-s.cy)**2;if(d<mn){mn=d;c=s;}}return c;}
 
 // Generate rigged trajectory that lands on target player's sector
 function calcTrajRigged(targetName,sectors){
