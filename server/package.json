@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "bot": "node bot.js",
     "dev": "node --watch server.js"
   },
   "dependencies": {
