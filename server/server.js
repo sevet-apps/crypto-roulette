@@ -22,60 +22,58 @@ let G={ph:'waiting',rid:0,pl:[],pool:0,timer:C.TIMER,ss:null,ps:null,sh:null,win
 let tI=null;
 
 function calcSec(pl,tp,sz){if(!pl.length)return[];
-  const so=[...pl].sort((a,b)=>b.bet-a.bet);
-  const sec=[];
-  const cx=sz/2,cy=sz/2;
-  // Create angular sectors from the square boundary
-  // Each player gets an angular slice proportional to their bet
-  let angleStart=0;
-  for(let i=0;i<so.length;i++){
-    const p=so[i];
-    const angleFrac=p.bet/tp;
-    const angleEnd=angleStart+angleFrac*Math.PI*2;
-    // Create polygon points: center + arc points clipped to square
-    const pts=[];
-    const steps=Math.max(3,Math.round(angleFrac*24)); // more points for larger sectors
-    // Add center point
-    // For visual variety: large sectors extend from center, small ones are edge triangles
-    const innerR=0; // all sectors touch center
-    for(let j=0;j<=steps;j++){
-      const a=angleStart+(angleEnd-angleStart)*(j/steps);
-      // Ray from center — find intersection with square boundary
-      const dx=Math.cos(a),dy=Math.sin(a);
-      let t=Infinity;
-      // Intersect with 4 edges of square (0,0)-(sz,sz)
-      if(dx>0)t=Math.min(t,(sz-cx)/dx);
-      if(dx<0)t=Math.min(t,-cx/dx);
-      if(dy>0)t=Math.min(t,(sz-cy)/dy);
-      if(dy<0)t=Math.min(t,-cy/dy);
-      pts.push([cx+dx*t, cy+dy*t]);
+  var so=[].concat(pl).sort(function(a,b){return b.bet-a.bet});
+  var sec=[];
+  function split(items,x,y,w,h,depth){
+    if(!items.length)return;
+    if(items.length===1){
+      var p=items[0];
+      sec.push({pid:p.id,name:p.name,ini:p.ini,color:p.color,bet:p.bet,
+        pct:(p.bet/tp*100).toFixed(1),
+        poly:[[x,y],[x+w,y],[x+w,y+h],[x,y+h]],
+        cx:x+w/2,cy:y+h/2,x:x,y:y,w:w,h:h});
+      return;
     }
-    // Close with center
-    pts.push([cx,cy]);
-    // Calculate centroid for label placement
-    let pcx=0,pcy=0;
-    const midA=(angleStart+angleEnd)/2;
-    const midDx=Math.cos(midA),midDy=Math.sin(midA);
-    let midT=Infinity;
-    if(midDx>0)midT=Math.min(midT,(sz-cx)/midDx);
-    if(midDx<0)midT=Math.min(midT,-cx/midDx);
-    if(midDy>0)midT=Math.min(midT,(sz-cy)/midDy);
-    if(midDy<0)midT=Math.min(midT,-cy/midDy);
-    pcx=cx+midDx*midT*0.55; // label at 55% from center to edge
-    pcy=cy+midDy*midT*0.55;
-    
-    sec.push({
-      pid:p.id,name:p.name,ini:p.ini,color:p.color,bet:p.bet,
-      pct:(p.bet/tp*100).toFixed(1),
-      poly:pts, // polygon points array
-      cx:pcx,cy:pcy, // centroid for label
-      // Keep x,y,w,h for backward compat (bounding box)
-      x:Math.min(...pts.map(p2=>p2[0])),y:Math.min(...pts.map(p2=>p2[1])),
-      w:Math.max(...pts.map(p2=>p2[0]))-Math.min(...pts.map(p2=>p2[0])),
-      h:Math.max(...pts.map(p2=>p2[1]))-Math.min(...pts.map(p2=>p2[1]))
-    });
-    angleStart=angleEnd;
+    if(items.length===2){
+      var p1=items[0],p2=items[1];
+      var r1=p1.bet/(p1.bet+p2.bet);
+      if(depth%3===0&&w>50&&h>50){
+        if(w>=h){
+          var sx2=x+w*r1;var off=w*.12;
+          sec.push({pid:p1.id,name:p1.name,ini:p1.ini,color:p1.color,bet:p1.bet,
+            pct:(p1.bet/tp*100).toFixed(1),
+            poly:[[x,y],[sx2+off,y],[sx2-off,y+h],[x,y+h]],
+            cx:(x+sx2)/2,cy:y+h/2,x:x,y:y,w:sx2-x+off,h:h});
+          sec.push({pid:p2.id,name:p2.name,ini:p2.ini,color:p2.color,bet:p2.bet,
+            pct:(p2.bet/tp*100).toFixed(1),
+            poly:[[sx2+off,y],[x+w,y],[x+w,y+h],[sx2-off,y+h]],
+            cx:(sx2+x+w)/2,cy:y+h/2,x:sx2-off,y:y,w:x+w-sx2+off,h:h});
+        }else{
+          var sy2=y+h*r1;var off2=h*.12;
+          sec.push({pid:p1.id,name:p1.name,ini:p1.ini,color:p1.color,bet:p1.bet,
+            pct:(p1.bet/tp*100).toFixed(1),
+            poly:[[x,y],[x+w,y],[x+w,sy2+off2],[x,sy2-off2]],
+            cx:x+w/2,cy:(y+sy2)/2,x:x,y:y,w:w,h:sy2-y+off2});
+          sec.push({pid:p2.id,name:p2.name,ini:p2.ini,color:p2.color,bet:p2.bet,
+            pct:(p2.bet/tp*100).toFixed(1),
+            poly:[[x,sy2-off2],[x+w,sy2+off2],[x+w,y+h],[x,y+h]],
+            cx:x+w/2,cy:(sy2+y+h)/2,x:x,y:sy2-off2,w:w,h:y+h-sy2+off2});
+        }
+        return;
+      }
+      if(w>=h){var sx3=x+w*r1;split([p1],x,y,sx3-x,h,depth+1);split([p2],sx3,y,x+w-sx3,h,depth+1);}
+      else{var sy3=y+h*r1;split([p1],x,y,w,sy3-y,depth+1);split([p2],x,sy3,w,y+h-sy3,depth+1);}
+      return;
+    }
+    var tv=items.reduce(function(s,p){return s+p.bet},0);
+    var acc=0,si=1;
+    for(var i=0;i<items.length-1;i++){acc+=items[i].bet;if(acc>=tv*.45){si=i+1;break;}}
+    var g1=items.slice(0,si),g2=items.slice(si);
+    var r=g1.reduce(function(s,p){return s+p.bet},0)/tv;
+    if(w>=h){var sx4=x+w*r;split(g1,x,y,sx4-x,h,depth+1);split(g2,sx4,y,x+w-sx4,h,depth+1);}
+    else{var sy4=y+h*r;split(g1,x,y,w,sy4-y,depth+1);split(g2,x,sy4,w,y+h-sy4,depth+1);}
   }
+  split(so,0,0,sz,sz,0);
   return sec;}
 
 // Generate trajectory from specific parameters
@@ -134,7 +132,7 @@ function calcTrajRigged(targetName,sectors){
 function recalc(){G.pool=Math.round(G.pl.reduce((s,p)=>s+p.bet,0)*100)/100;G.sectors=calcSec(G.pl,G.pool,C.ARENA);}
 
 const BN=['@cryptowolf','@moonshot','@diamond_hands','@whale_alert','@degen_king','@ton_maxi','@hodler42','@nft_queen','@alpha_hunter','@block_wizard','@satoshi_jr','@pump_master','@chain_smoker','@gas_fee','@rug_check','@yield_farm','@stake_pool','@swap_lord','@bridge_troll','@dao_voter','@meta_verse','@pixel_punk','@ape_strong','@bear_trap','@bull_run','Grey Oscar','Anna K.','Max Power','Luna Star','Crypto Ninja','Блокчейн Бро','ТОН Мастер','Кит Моби','Алмазные Руки','Король Дегенов'];
-const BC=['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8','#F7DC6F','#BB8FCE','#85C1E9','#F0B27A','#82E0AA','#F1948A','#85929E','#73C6B6','#E74C3C','#3498DB','#2ECC71','#F39C12','#9B59B6','#1ABC9C','#E67E22','#34495E','#E91E63','#00BCD4','#FF9800','#8BC34A','#FF5722','#607D8B','#795548','#FF69B4','#00CED1'];
+const BC=['#FF4444','#00D4AA','#2196F3','#FF9800','#E91E63','#8BC34A','#9C27B0','#00BCD4','#FF5722','#CDDC39','#3F51B5','#FF6D00','#26A69A','#D81B60','#7C4DFF','#F44336','#00E5FF','#76FF03','#FFD600','#AA00FF','#1DE9B6','#FF3D00','#304FFE','#C6FF00','#FF1744','#00B8D4','#64DD17','#DD2C00','#6200EA','#00C853','#F50057','#18FFFF'];
 function gI(n){if(n.startsWith('@'))return n.substring(1,3).toUpperCase();const p=n.split(/[\s.]+/).filter(Boolean);return p.length>=2?(p[0][0]+p[1][0]).toUpperCase():n.substring(0,2).toUpperCase();}
 let ubn=new Set(),rc=0;
 function gBB(c){const r={mass:[0.1,10],mid:[10,100],shark:[100,1000],whale:[1000,50000]}[c];return Math.round(Math.exp(Math.log(r[0])+Math.random()*(Math.log(r[1])-Math.log(r[0])))*100)/100;}

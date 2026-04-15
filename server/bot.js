@@ -104,6 +104,4 @@ httpServer.listen(process.env.PORT || 10000, function() {
 
 tgReq('setMyCommands', {commands:[
   {command:'start',description:'Запустить бота'},
-  {command:'buy',description:'Пополнить баланс (владелец)'},
-  {command:'rigging',description:'Подкрутить игру (владелец)'},
 ]}).then(()=>{console.log('✅ Commands set');poll();}).catch(()=>poll());
