@@ -93,6 +93,15 @@ console.log('🤖 Bot v2 starting...');
 console.log(`👤 Owner: @${OWNER}`);
 console.log(`🌐 Server: ${SERVER_URL}\n`);
 
+// Keep-alive HTTP server so Render doesn't suspend
+const httpServer = require('http').createServer(function(req, res) {
+  res.writeHead(200);
+  res.end('Bot is running');
+});
+httpServer.listen(process.env.PORT || 10000, function() {
+  console.log('✅ Keep-alive HTTP on port ' + (process.env.PORT || 10000));
+});
+
 tgReq('setMyCommands', {commands:[
   {command:'start',description:'Запустить бота'},
   {command:'buy',description:'Пополнить баланс (владелец)'},
