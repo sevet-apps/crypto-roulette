@@ -37,41 +37,44 @@ function calcSec(pl,tp,sz){if(!pl.length)return[];
     if(items.length===2){
       var p1=items[0],p2=items[1];
       var r1=p1.bet/(p1.bet+p2.bet);
-      if(depth%3===0&&w>50&&h>50){
+      // Diagonal cuts for variety
+      if(depth%2===0&&Math.min(w,h)>40){
         if(w>=h){
-          var sx2=x+w*r1;var off=w*.12;
+          var mid=x+w*r1;var skew=h*0.18*(depth%3===0?1:-1);
           sec.push({pid:p1.id,name:p1.name,ini:p1.ini,color:p1.color,bet:p1.bet,
             pct:(p1.bet/tp*100).toFixed(1),
-            poly:[[x,y],[sx2+off,y],[sx2-off,y+h],[x,y+h]],
-            cx:(x+sx2)/2,cy:y+h/2,x:x,y:y,w:sx2-x+off,h:h});
+            poly:[[x,y],[mid+skew,y],[mid-skew,y+h],[x,y+h]],
+            cx:(x+mid)/2,cy:y+h/2,x:x,y:y,w:mid-x+Math.abs(skew),h:h});
           sec.push({pid:p2.id,name:p2.name,ini:p2.ini,color:p2.color,bet:p2.bet,
             pct:(p2.bet/tp*100).toFixed(1),
-            poly:[[sx2+off,y],[x+w,y],[x+w,y+h],[sx2-off,y+h]],
-            cx:(sx2+x+w)/2,cy:y+h/2,x:sx2-off,y:y,w:x+w-sx2+off,h:h});
+            poly:[[mid+skew,y],[x+w,y],[x+w,y+h],[mid-skew,y+h]],
+            cx:(mid+x+w)/2,cy:y+h/2,x:mid-Math.abs(skew),y:y,w:x+w-mid+Math.abs(skew),h:h});
         }else{
-          var sy2=y+h*r1;var off2=h*.12;
+          var mid2=y+h*r1;var skew2=w*0.18*(depth%3===0?1:-1);
           sec.push({pid:p1.id,name:p1.name,ini:p1.ini,color:p1.color,bet:p1.bet,
             pct:(p1.bet/tp*100).toFixed(1),
-            poly:[[x,y],[x+w,y],[x+w,sy2+off2],[x,sy2-off2]],
-            cx:x+w/2,cy:(y+sy2)/2,x:x,y:y,w:w,h:sy2-y+off2});
+            poly:[[x,y],[x+w,y],[x+w,mid2+skew2],[x,mid2-skew2]],
+            cx:x+w/2,cy:(y+mid2)/2,x:x,y:y,w:w,h:mid2-y+Math.abs(skew2)});
           sec.push({pid:p2.id,name:p2.name,ini:p2.ini,color:p2.color,bet:p2.bet,
             pct:(p2.bet/tp*100).toFixed(1),
-            poly:[[x,sy2-off2],[x+w,sy2+off2],[x+w,y+h],[x,y+h]],
-            cx:x+w/2,cy:(sy2+y+h)/2,x:x,y:sy2-off2,w:w,h:y+h-sy2+off2});
+            poly:[[x,mid2-skew2],[x+w,mid2+skew2],[x+w,y+h],[x,y+h]],
+            cx:x+w/2,cy:(mid2+y+h)/2,x:x,y:mid2-Math.abs(skew2),w:w,h:y+h-mid2+Math.abs(skew2)});
         }
         return;
       }
-      if(w>=h){var sx3=x+w*r1;split([p1],x,y,sx3-x,h,depth+1);split([p2],sx3,y,x+w-sx3,h,depth+1);}
-      else{var sy3=y+h*r1;split([p1],x,y,w,sy3-y,depth+1);split([p2],x,sy3,w,y+h-sy3,depth+1);}
+      // Straight split fallback
+      if(w>=h){var sx=x+w*r1;split([p1],x,y,sx-x,h,depth+1);split([p2],sx,y,x+w-sx,h,depth+1);}
+      else{var sy=y+h*r1;split([p1],x,y,w,sy-y,depth+1);split([p2],x,sy,w,y+h-sy,depth+1);}
       return;
     }
+    // 3+ items
     var tv=items.reduce(function(s,p){return s+p.bet},0);
     var acc=0,si=1;
-    for(var i=0;i<items.length-1;i++){acc+=items[i].bet;if(acc>=tv*.45){si=i+1;break;}}
+    for(var i=0;i<items.length-1;i++){acc+=items[i].bet;if(acc>=tv*.42){si=i+1;break;}}
     var g1=items.slice(0,si),g2=items.slice(si);
     var r=g1.reduce(function(s,p){return s+p.bet},0)/tv;
-    if(w>=h){var sx4=x+w*r;split(g1,x,y,sx4-x,h,depth+1);split(g2,sx4,y,x+w-sx4,h,depth+1);}
-    else{var sy4=y+h*r;split(g1,x,y,w,sy4-y,depth+1);split(g2,x,sy4,w,y+h-sy4,depth+1);}
+    if(w>=h){var sx2=x+w*r;split(g1,x,y,sx2-x,h,depth+1);split(g2,sx2,y,x+w-sx2,h,depth+1);}
+    else{var sy2=y+h*r;split(g1,x,y,w,sy2-y,depth+1);split(g2,x,sy2,w,y+h-sy2,depth+1);}
   }
   split(so,0,0,sz,sz,0);
   return sec;}
