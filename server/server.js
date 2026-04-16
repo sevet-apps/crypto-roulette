@@ -24,59 +24,46 @@ let tI=null;
 function calcSec(pl,tp,sz){if(!pl.length)return[];
   var so=[].concat(pl).sort(function(a,b){return b.bet-a.bet});
   var sec=[];
-  function split(items,x,y,w,h,depth){
-    if(!items.length)return;
-    if(items.length===1){
-      var p=items[0];
-      sec.push({pid:p.id,name:p.name,ini:p.ini,color:p.color,bet:p.bet,
-        pct:(p.bet/tp*100).toFixed(1),
-        poly:[[x,y],[x+w,y],[x+w,y+h],[x,y+h]],
-        cx:x+w/2,cy:y+h/2,x:x,y:y,w:w,h:h});
-      return;
+  var cx0=sz/2,cy0=sz/2;
+  // Angular slices — each player gets proportional angle
+  // Rays from center to square edges create triangles/trapezoids
+  var aStart=-Math.PI*0.75; // start from top-left corner for visual variety
+  for(var i=0;i<so.length;i++){
+    var p=so[i];
+    var frac=p.bet/tp;
+    var aEnd=aStart+frac*Math.PI*2;
+    var pts=[];
+    // Trace boundary points along square edge between aStart and aEnd
+    var steps=Math.max(2,Math.ceil(frac*32));
+    for(var j=0;j<=steps;j++){
+      var a=aStart+(aEnd-aStart)*(j/steps);
+      var dx=Math.cos(a),dy=Math.sin(a);
+      // Ray-square intersection
+      var t=1e9;
+      if(dx>0)t=Math.min(t,(sz-cx0)/dx);
+      if(dx<0)t=Math.min(t,(-cx0)/dx);
+      if(dy>0)t=Math.min(t,(sz-cy0)/dy);
+      if(dy<0)t=Math.min(t,(-cy0)/dy);
+      pts.push([cx0+dx*t, cy0+dy*t]);
     }
-    if(items.length===2){
-      var p1=items[0],p2=items[1];
-      var r1=p1.bet/(p1.bet+p2.bet);
-      // Diagonal cuts for variety
-      if(depth%2===0&&Math.min(w,h)>40){
-        if(w>=h){
-          var mid=x+w*r1;var skew=h*0.18*(depth%3===0?1:-1);
-          sec.push({pid:p1.id,name:p1.name,ini:p1.ini,color:p1.color,bet:p1.bet,
-            pct:(p1.bet/tp*100).toFixed(1),
-            poly:[[x,y],[mid+skew,y],[mid-skew,y+h],[x,y+h]],
-            cx:(x+mid)/2,cy:y+h/2,x:x,y:y,w:mid-x+Math.abs(skew),h:h});
-          sec.push({pid:p2.id,name:p2.name,ini:p2.ini,color:p2.color,bet:p2.bet,
-            pct:(p2.bet/tp*100).toFixed(1),
-            poly:[[mid+skew,y],[x+w,y],[x+w,y+h],[mid-skew,y+h]],
-            cx:(mid+x+w)/2,cy:y+h/2,x:mid-Math.abs(skew),y:y,w:x+w-mid+Math.abs(skew),h:h});
-        }else{
-          var mid2=y+h*r1;var skew2=w*0.18*(depth%3===0?1:-1);
-          sec.push({pid:p1.id,name:p1.name,ini:p1.ini,color:p1.color,bet:p1.bet,
-            pct:(p1.bet/tp*100).toFixed(1),
-            poly:[[x,y],[x+w,y],[x+w,mid2+skew2],[x,mid2-skew2]],
-            cx:x+w/2,cy:(y+mid2)/2,x:x,y:y,w:w,h:mid2-y+Math.abs(skew2)});
-          sec.push({pid:p2.id,name:p2.name,ini:p2.ini,color:p2.color,bet:p2.bet,
-            pct:(p2.bet/tp*100).toFixed(1),
-            poly:[[x,mid2-skew2],[x+w,mid2+skew2],[x+w,y+h],[x,y+h]],
-            cx:x+w/2,cy:(mid2+y+h)/2,x:x,y:mid2-Math.abs(skew2),w:w,h:y+h-mid2+Math.abs(skew2)});
-        }
-        return;
-      }
-      // Straight split fallback
-      if(w>=h){var sx=x+w*r1;split([p1],x,y,sx-x,h,depth+1);split([p2],sx,y,x+w-sx,h,depth+1);}
-      else{var sy=y+h*r1;split([p1],x,y,w,sy-y,depth+1);split([p2],x,sy,w,y+h-sy,depth+1);}
-      return;
-    }
-    // 3+ items
-    var tv=items.reduce(function(s,p){return s+p.bet},0);
-    var acc=0,si=1;
-    for(var i=0;i<items.length-1;i++){acc+=items[i].bet;if(acc>=tv*.42){si=i+1;break;}}
-    var g1=items.slice(0,si),g2=items.slice(si);
-    var r=g1.reduce(function(s,p){return s+p.bet},0)/tv;
-    if(w>=h){var sx2=x+w*r;split(g1,x,y,sx2-x,h,depth+1);split(g2,sx2,y,x+w-sx2,h,depth+1);}
-    else{var sy2=y+h*r;split(g1,x,y,w,sy2-y,depth+1);split(g2,x,sy2,w,y+h-sy2,depth+1);}
+    pts.push([cx0,cy0]); // close with center
+    // Centroid at 55% from center toward mid-edge
+    var midA=(aStart+aEnd)/2;
+    var mdx=Math.cos(midA),mdy=Math.sin(midA);
+    var mt=1e9;
+    if(mdx>0)mt=Math.min(mt,(sz-cx0)/mdx);
+    if(mdx<0)mt=Math.min(mt,(-cx0)/mdx);
+    if(mdy>0)mt=Math.min(mt,(sz-cy0)/mdy);
+    if(mdy<0)mt=Math.min(mt,(-cy0)/mdy);
+    var lcx=cx0+mdx*mt*0.5,lcy=cy0+mdy*mt*0.5;
+    // Bounding box for compat
+    var xs=pts.map(function(p2){return p2[0]}),ys=pts.map(function(p2){return p2[1]});
+    var bx=Math.min.apply(null,xs),by=Math.min.apply(null,ys);
+    var bw=Math.max.apply(null,xs)-bx,bh=Math.max.apply(null,ys)-by;
+    sec.push({pid:p.id,name:p.name,ini:p.ini,color:p.color,bet:p.bet,
+      pct:(p.bet/tp*100).toFixed(1),poly:pts,cx:lcx,cy:lcy,x:bx,y:by,w:bw,h:bh});
+    aStart=aEnd;
   }
-  split(so,0,0,sz,sz,0);
   return sec;}
 
 // Generate trajectory from specific parameters
@@ -116,7 +103,7 @@ function calcTrajRigged(targetName,sectors){
   if(!targetSec){console.log('[RIG] Target sector not found for:',targetName);return calcTrajRandom();}
   
   // Brute force: generate trajectories until one lands on target sector
-  for(let attempt=0;attempt<500;attempt++){
+  for(let attempt=0;attempt<3000;attempt++){
     const t=calcTrajRandom();
     const last=t.pts[t.pts.length-1];
     const landSec=findSector(last,sectors);
