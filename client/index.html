@@ -79,16 +79,16 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--t);font-family
 /* WINNER */
 .win-ov{position:fixed;inset:0;z-index:500;pointer-events:none;display:flex;align-items:flex-end;justify-content:center;transition:background .3s}
 .win-ov.show{pointer-events:auto;background:rgba(0,0,0,.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-.win-sheet{width:100%;max-width:480px;min-height:58vh;border-radius:24px 24px 0 0;overflow:hidden;transform:translateY(100%);transition:transform .4s cubic-bezier(.22,1,.36,1)}
+.win-sheet{width:100%;max-width:480px;min-height:60vh;border-radius:24px 24px 0 0;overflow:hidden;transform:translateY(100%);transition:transform .4s cubic-bezier(.22,1,.36,1);display:flex;flex-direction:column}
 .win-ov.show .win-sheet{transform:translateY(0)}
-.win-top{background:linear-gradient(180deg,#1a5c2e 0%,#0f3d1d 50%,#0a2a14 100%);padding:24px 20px 20px;position:relative;text-align:center;min-height:320px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.win-top{background:linear-gradient(180deg,#1a5c2e 0%,#0f3d1d 50%,#0a2a14 100%);padding:24px 20px 20px;position:relative;text-align:center;min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0}
 .win-close{position:absolute;top:16px;right:16px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.1);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2}.win-close svg{width:16px;height:16px;fill:#aaa}
 .win-ring{position:absolute;top:16px;right:16px;width:36px;height:36px;pointer-events:none;z-index:1}
 .win-ring svg{width:36px;height:36px;transform:rotate(-90deg)}
 .win-ring circle{fill:none;stroke:rgba(255,255,255,.3);stroke-width:2;stroke-linecap:round}
 .win-title{font-family:'Outfit',sans-serif;font-size:22px;font-weight:800;margin-bottom:12px;color:#fff}
 .win-lottie{width:180px;height:180px;margin:0 auto 12px}
-.win-bot{background:#0c0c14;padding:20px 20px calc(var(--sb)+24px)}
+.win-bot{background:#0c0c14;padding:0 20px;flex:1;display:flex;align-items:center;justify-content:center}
 .win-info{display:flex;align-items:center;justify-content:center;gap:14px;background:#161622;border-radius:18px;padding:16px 24px}
 .win-amt{font-family:'Outfit',sans-serif;font-size:26px;font-weight:900}.win-mult{background:var(--blue);border-radius:14px;padding:6px 14px;font-family:'Outfit',sans-serif;font-size:16px;font-weight:800;color:#fff}
 .confetti{position:fixed;inset:0;pointer-events:none;z-index:510;overflow:hidden}

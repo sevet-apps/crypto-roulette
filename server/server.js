@@ -1,6 +1,6 @@
 // CRYPTO ROULETTE — Server v10 (rigging + arrow fix)
 const express=require('express'),http=require('http'),{Server}=require('socket.io'),cors=require('cors'),crypto=require('crypto'),path=require('path');
-const app=express();app.use(cors());app.use(express.json());app.use(express.static(path.join(__dirname,'..','client')));
+const app=express();app.use(cors());app.use(express.json());app.use(express.static(path.join(__dirname,'..','client'),{maxAge:0,etag:false}));
 const server=http.createServer(app);
 const io=new Server(server,{cors:{origin:'*',methods:['GET','POST']},maxHttpBufferSize:5e6});
 const PORT=process.env.PORT||3000;
