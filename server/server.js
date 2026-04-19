@@ -1,6 +1,8 @@
 // CRYPTO ROULETTE — Server v20 (diagonal treemap + morph)
 const express=require('express'),http=require('http'),{Server}=require('socket.io'),cors=require('cors'),crypto=require('crypto'),path=require('path');
-const app=express();app.use(cors());app.use(express.json());app.use(express.static(path.join(__dirname,'..','client'),{maxAge:0,etag:false}));
+const app=express();app.use(cors());app.use(express.json());
+app.use(function(req,res,next){res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');res.setHeader('Pragma','no-cache');res.setHeader('Expires','0');next();});
+app.use(express.static(path.join(__dirname,'..','client'),{maxAge:0,etag:false,lastModified:false}));
 const server=http.createServer(app);
 const io=new Server(server,{cors:{origin:'*',methods:['GET','POST']},maxHttpBufferSize:5e6});
 const PORT=process.env.PORT||3000;
