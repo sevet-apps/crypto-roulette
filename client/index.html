@@ -271,7 +271,6 @@ function render(){requestAnimationFrame(render);if(!S)return;var s=sc;
     return result;
   }
   if(S.sec&&S.sec.length){S.sec.forEach(function(sec){
-    // Draw polygon sector
     var poly=interpPoly(sec.pid)||sec.poly;
     if(poly&&poly.length>2){
       cx.beginPath();cx.moveTo(poly[0][0]*s,poly[0][1]*s);
