@@ -47,7 +47,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--t);font-family
 /* MODALS */
 .mo{position:fixed;inset:0;background:rgba(0,0,0,0);z-index:400;pointer-events:none;transition:background .3s;display:flex;align-items:flex-end;justify-content:center}
 .mo.show{background:rgba(0,0,0,.6);pointer-events:auto;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
-.ms{width:100%;max-width:480px;background:#121220;border-radius:24px 24px 0 0;padding:20px 24px calc(var(--sb)+130px);transform:translateY(100%);transition:transform .35s cubic-bezier(.32,1,.23,1)}
+.ms{width:100%;max-width:480px;background:#121220;border-radius:24px 24px 0 0;padding:20px 24px calc(var(--sb)+180px);transform:translateY(100%);transition:transform .35s cubic-bezier(.32,1,.23,1)}
 .mo.show .ms{transform:translateY(0)}
 .mh{width:36px;height:4px;border-radius:2px;background:rgba(255,255,255,.12);margin:0 auto 14px}
 .mt{font-family:'Outfit',sans-serif;font-size:20px;font-weight:800;margin-bottom:14px;padding-left:6px}
@@ -152,7 +152,7 @@ function applyTopPadding(){
     try{contentTop=(tg.contentSafeAreaInset&&tg.contentSafeAreaInset.top)||0;}catch(e){}
   }
   // Minimum 120px for Telegram buttons + extra safe area on top
-  var total=Math.max(120, safeTop+contentTop+60);
+  var total=Math.max(80, safeTop+contentTop+40);
   document.documentElement.style.setProperty('--st',total+'px');
   var app=document.getElementById('app');
   if(app)app.style.paddingTop=total+'px';
@@ -213,6 +213,7 @@ setInterval(updDepBtn,30000);
 // Socket
 sk.on('connect',function(){mySID=sk.id;sk.emit('auth',{username:uN});});
 sk.on('gs',function(s){
+  if(typeof console!=='undefined'&&console.log)console.log('[gs] ph:'+s.ph+' sec:'+(s.sec?s.sec.length:'null')+' pl:'+(s.pl?s.pl.length:'null'));
   // Start morph when sectors change in betting phase
   if(s.sec&&s.sec.length&&S&&S.sec&&S.sec.length&&(s.ph==='waiting'||s.ph==='countdown')){
     morphSec=S.sec.map(function(sc){return {pid:sc.pid,poly:sc.poly?sc.poly.map(function(p){return p.slice()}):null};});
