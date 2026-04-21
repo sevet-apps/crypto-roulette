@@ -276,16 +276,19 @@ function render(){requestAnimationFrame(render);if(!S)return;var s=sc;
     if(!morphSec||!morphTarget||morphProg>=1)return null;
     var oldP=morphSec.find(function(m){return m.pid===pid&&m.poly;});
     var newP=morphTarget.find(function(m){return m.pid===pid&&m.poly;});
-    if(!oldP||!newP)return null;
-    // Resample both to same number of points (use new as reference)
-    var n=newP.poly.length;
-    var resampled=resamplePoly(oldP.poly,n);
-    var result=[];
-    for(var k=0;k<n;k++){
-      result.push([resampled[k][0]+(newP.poly[k][0]-resampled[k][0])*morphProg,
-                   resampled[k][1]+(newP.poly[k][1]-resampled[k][1])*morphProg]);
-    }
-    return result;
+    if(!oldP||!newP||!oldP.poly||!newP.poly||newP.poly.length<3)return null;
+    try{
+      var n=newP.poly.length;
+      var resampled=resamplePoly(oldP.poly,n);
+      if(!resampled||resampled.length!==n)return null;
+      var result=[];
+      for(var k=0;k<n;k++){
+        if(!resampled[k]||!newP.poly[k])return null;
+        result.push([resampled[k][0]+(newP.poly[k][0]-resampled[k][0])*morphProg,
+                     resampled[k][1]+(newP.poly[k][1]-resampled[k][1])*morphProg]);
+      }
+      return result;
+    }catch(e){return null;}
   }
   if(S.sec&&S.sec.length){S.sec.forEach(function(sec){
     // Draw polygon sector
@@ -294,11 +297,8 @@ function render(){requestAnimationFrame(render);if(!S)return;var s=sc;
       cx.beginPath();cx.moveTo(poly[0][0]*s,poly[0][1]*s);
       for(var pi=1;pi<poly.length;pi++)cx.lineTo(poly[pi][0]*s,poly[pi][1]*s);
       cx.closePath();
-      // Gradient from center outward
-      var gcx=sec.cx*s,gcy=sec.cy*s;
-      var g=cx.createRadialGradient(csz/2,csz/2,0,gcx,gcy,csz*.7);
-      g.addColorStop(0,sec.color);g.addColorStop(1,shade(sec.color,-25));
-      cx.fillStyle=g;cx.globalAlpha=.88;cx.fill();
+      // Solid fill — guaranteed to work
+      cx.fillStyle=sec.color;cx.globalAlpha=.92;cx.fill();
       cx.globalAlpha=1;cx.strokeStyle='rgba(0,0,0,.5)';cx.lineWidth=1.5;cx.stroke();
       // Winner glow
       if(S.ph==='result'&&S.w&&S.w.sid===sec.pid){cx.save();cx.strokeStyle='#0098EA';cx.lineWidth=3;cx.shadowColor='#0098EA';cx.shadowBlur=20;cx.beginPath();cx.moveTo(poly[0][0]*s,poly[0][1]*s);for(var pi2=1;pi2<poly.length;pi2++)cx.lineTo(poly[pi2][0]*s,poly[pi2][1]*s);cx.closePath();cx.stroke();cx.restore();}
