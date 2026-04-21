@@ -12,7 +12,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#060609;--card:#0e0e14;--cb:#1a1a24;--t:#f0f0f5;--t2:#5a5a6e;--blue:#0098ea;--green:#00e676;--gold:#ffd740;--pill:#1e1e2a;--st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)}
 html,body{width:100%;height:100%;background:var(--bg);color:var(--t);font-family:'Inter',sans-serif;overflow-x:hidden;overflow-y:auto;user-select:none;-webkit-tap-highlight-color:transparent}
-#app{width:100%;max-width:480px;margin:0 auto;padding-top:calc(var(--st)+220px);padding-bottom:200px;min-height:100%}
+#app{width:100%;max-width:480px;margin:0 auto;padding-bottom:200px;min-height:100%}
 .ton-s{width:14px;height:14px;vertical-align:middle;display:inline-block;flex-shrink:0}
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:6px 20px}
 .topbar-left{display:flex;gap:6px}
@@ -143,10 +143,27 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--t);font-family
 <div class="confetti" id="conf"></div>
 <script>
 var tgU=null,uN='guest_'+Math.random().toString(36).substr(2,5);
+// Force strong top padding regardless of Telegram safe area API
+function applyTopPadding(){
+  var tg=window.Telegram&&Telegram.WebApp;
+  var safeTop=0,contentTop=0;
+  if(tg){
+    try{safeTop=(tg.safeAreaInset&&tg.safeAreaInset.top)||0;}catch(e){}
+    try{contentTop=(tg.contentSafeAreaInset&&tg.contentSafeAreaInset.top)||0;}catch(e){}
+  }
+  // Minimum 120px for Telegram buttons + extra safe area on top
+  var total=Math.max(120, safeTop+contentTop+60);
+  document.documentElement.style.setProperty('--st',total+'px');
+  var app=document.getElementById('app');
+  if(app)app.style.paddingTop=total+'px';
+}
 try{if(window.Telegram&&Telegram.WebApp){Telegram.WebApp.ready();Telegram.WebApp.expand();try{Telegram.WebApp.requestFullscreen();}catch(e){}try{Telegram.WebApp.disableVerticalSwipes();}catch(e){}
   var u=Telegram.WebApp.initDataUnsafe&&Telegram.WebApp.initDataUnsafe.user;if(u){tgU=u;uN=u.username?u.username:(u.first_name||'Player');}
-  var st=Telegram.WebApp.safeAreaInset?Telegram.WebApp.safeAreaInset.top:0,ct=Telegram.WebApp.contentSafeAreaInset?Telegram.WebApp.contentSafeAreaInset.top:0;
-  document.documentElement.style.setProperty('--st',(st+ct)+'px');}}catch(e){}
+  applyTopPadding();
+  try{Telegram.WebApp.onEvent('viewportChanged',applyTopPadding);}catch(e){}
+  try{Telegram.WebApp.onEvent('safeAreaChanged',applyTopPadding);}catch(e){}
+  try{Telegram.WebApp.onEvent('contentSafeAreaChanged',applyTopPadding);}catch(e){}
+}else{applyTopPadding();}}catch(e){applyTopPadding();}
 document.addEventListener('touchstart',function(e){if(['INPUT','BUTTON','LABEL'].indexOf(e.target.tagName)===-1&&document.activeElement)document.activeElement.blur();});
 var sk=io(window.location.origin),cv=document.getElementById('arena'),cx=cv.getContext('2d');
 var csz=0,sc=1,AR=600;
@@ -271,6 +288,7 @@ function render(){requestAnimationFrame(render);if(!S)return;var s=sc;
     return result;
   }
   if(S.sec&&S.sec.length){S.sec.forEach(function(sec){
+    // Draw polygon sector
     var poly=interpPoly(sec.pid)||sec.poly;
     if(poly&&poly.length>2){
       cx.beginPath();cx.moveTo(poly[0][0]*s,poly[0][1]*s);
