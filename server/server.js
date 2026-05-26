@@ -25,49 +25,27 @@ let tI=null;
 
 function calcSec(pl,tp,sz){
   if(!pl.length)return[];
-  // Sort descending — biggest first
   var so=[].concat(pl).sort(function(a,b){return b.bet-a.bet});
   var sec=[];
-  
-  // Strategy:
-  // 1. Biggest player gets a centered rounded region (if >25% of pool)
-  // 2. Remaining space is cut around perimeter for smaller players
-  // 3. Small players (<5%) stack in corners as triangles
-  
-  // Start with full arena polygon
-  var arena=[[0,0],[sz,0],[sz,sz],[0,sz]];
-  var remaining=arena;
-  
-  // Helper functions
-  function polyArea(poly){
-    var a=0;for(var i=0;i<poly.length;i++){var j=(i+1)%poly.length;a+=poly[i][0]*poly[j][1]-poly[j][0]*poly[i][1];}return Math.abs(a)/2;
-  }
-  function polyCentroid(poly){
-    var cx=0,cy=0,a=0;
-    for(var i=0;i<poly.length;i++){var j=(i+1)%poly.length;var cr=poly[i][0]*poly[j][1]-poly[j][0]*poly[i][1];a+=cr;cx+=(poly[i][0]+poly[j][0])*cr;cy+=(poly[i][1]+poly[j][1])*cr;}
-    a/=2;if(Math.abs(a)<0.001){var sx=0,sy=0;poly.forEach(function(p){sx+=p[0];sy+=p[1];});return [sx/poly.length,sy/poly.length];}
-    return [cx/(6*a),cy/(6*a)];
-  }
-  function clipByLine(poly,ax,ay,bx,by,keepLeft){
+
+  // Helpers
+  function polyArea(poly){var a=0;for(var i=0;i<poly.length;i++){var j=(i+1)%poly.length;a+=poly[i][0]*poly[j][1]-poly[j][0]*poly[i][1];}return Math.abs(a)/2;}
+  function polyCentroid(poly){var cx=0,cy=0,a=0;for(var i=0;i<poly.length;i++){var j=(i+1)%poly.length;var cr=poly[i][0]*poly[j][1]-poly[j][0]*poly[i][1];a+=cr;cx+=(poly[i][0]+poly[j][0])*cr;cy+=(poly[i][1]+poly[j][1])*cr;}a/=2;if(Math.abs(a)<0.001){var sx=0,sy=0;poly.forEach(function(p){sx+=p[0];sy+=p[1];});return[sx/poly.length,sy/poly.length];}return[cx/(6*a),cy/(6*a)];}
+  // Clip polygon keeping the side where a*x+b*y <= cval
+  function clipHalf(poly,a,b,cval){
     if(!poly||poly.length===0)return[];
-    var out=[],dx=bx-ax,dy=by-ay;
-    function sideOf(p){return (p[0]-ax)*dy-(p[1]-ay)*dx;}
-    function inside(p){var s=sideOf(p);return keepLeft?s<=0:s>=0;}
+    var out=[];
     for(var i=0;i<poly.length;i++){
       var p1=poly[i],p2=poly[(i+1)%poly.length];
-      var in1=inside(p1),in2=inside(p2);
+      var d1=a*p1[0]+b*p1[1]-cval, d2=a*p2[0]+b*p2[1]-cval;
+      var in1=d1<=1e-9, in2=d2<=1e-9;
       if(in1)out.push(p1);
-      if(in1!==in2){
-        var s1=sideOf(p1),s2=sideOf(p2);
-        if(Math.abs(s1-s2)<1e-9)continue;
-        var t=s1/(s1-s2);
-        out.push([p1[0]+t*(p2[0]-p1[0]),p1[1]+t*(p2[1]-p1[1])]);
-      }
+      if(in1!==in2){var t=d1/(d1-d2);out.push([p1[0]+t*(p2[0]-p1[0]),p1[1]+t*(p2[1]-p1[1])]);}
     }
     return out;
   }
   function pushSec(p,poly){
-    if(!poly||poly.length<3)return false;
+    if(!poly||poly.length<3)return;
     var cent=polyCentroid(poly);
     var xs=poly.map(function(q){return q[0]}),ys=poly.map(function(q){return q[1]});
     sec.push({pid:p.id,name:p.name,ini:p.ini,color:p.color,bet:p.bet,
@@ -75,91 +53,71 @@ function calcSec(pl,tp,sz){
       x:Math.min.apply(null,xs),y:Math.min.apply(null,ys),
       w:Math.max.apply(null,xs)-Math.min.apply(null,xs),
       h:Math.max.apply(null,ys)-Math.min.apply(null,ys)});
-    return true;
   }
-  
-  // Recursive split: at each step, cut off smallest from remaining polygon by slicing from an edge
-  function processRemaining(items,poly,depth){
+
+  // Recursive binary split of a polygon by a cutting line.
+  // Direction & offset chosen so first group gets exactly its area fraction.
+  // We rotate cut direction per depth to make varied non-rectangular shapes.
+  var cutAngles=[0, Math.PI/2, Math.PI/4, -Math.PI/4, Math.PI/3, -Math.PI/6, Math.PI/6, -Math.PI/3];
+
+  function split(items,poly,depth){
     if(!items.length)return;
     if(items.length===1){pushSec(items[0],poly);return;}
-    
-    // Sort by bet — biggest group first vs smallest group
+
     var total=items.reduce(function(s,p){return s+p.bet},0);
-    
-    // If biggest is majority (>45%), cut it as a chunk from center
-    // Otherwise split roughly in half
-    var biggest=items[0];
-    var biggestFrac=biggest.bet/total;
-    
-    // Bounding box of remaining poly
-    var xs=poly.map(function(q){return q[0]}),ys=poly.map(function(q){return q[1]});
-    var bx=Math.min.apply(null,xs),by=Math.min.apply(null,ys);
-    var bw=Math.max.apply(null,xs)-bx,bh=Math.max.apply(null,ys)-by;
-    var vert=bw>=bh;
-    
-    // Split into 2 groups. Target ~50% split when possible
-    var acc=0,si=1;
-    for(var i=0;i<items.length-1;i++){acc+=items[i].bet;if(acc>=total*0.5){si=i+1;break;}}
-    if(si<1)si=1;if(si>=items.length)si=items.length-1;
+    // Choose split index nearest to 50% of weight
+    var acc=0,si=1,best=1e9;
+    for(var i=0;i<items.length-1;i++){
+      acc+=items[i].bet;
+      var diff=Math.abs(acc-total*0.5);
+      if(diff<best){best=diff;si=i+1;}
+    }
     var g1=items.slice(0,si),g2=items.slice(si);
-    var w1=g1.reduce(function(s,p){return s+p.bet},0);
-    var ratio=w1/total;
-    
-    // Diagonal tilt for visual variety (alternates by depth)
-    var tiltPattern=[0.22,-0.18,0.25,-0.15,0.2,-0.22];
-    var tilt=(depth<4&&Math.min(bw,bh)>60)?tiltPattern[depth%tiltPattern.length]:0;
-    
-    var p1=[],p2=[];
-    if(vert){
-      var xm=bx+bw*ratio;
-      var ax=xm-tilt*bh/2, ay=by;
-      var bx2=xm+tilt*bh/2, by2=by+bh;
-      p1=clipByLine(poly,ax,ay,bx2,by2,true);
-      p2=clipByLine(poly,ax,ay,bx2,by2,false);
-    }else{
-      var ym=by+bh*ratio;
-      var ax2=bx, ay2=ym-tilt*bw/2;
-      var bx3=bx+bw, by3=ym+tilt*bw/2;
-      p1=clipByLine(poly,ax2,ay2,bx3,by3,true);
-      p2=clipByLine(poly,ax2,ay2,bx3,by3,false);
+    var frac=g1.reduce(function(s,p){return s+p.bet},0)/total;
+
+    // Cut direction
+    var ang=cutAngles[depth%cutAngles.length];
+    var nx=Math.cos(ang),ny=Math.sin(ang); // normal of cut line
+
+    // Project all polygon vertices onto normal, find range
+    var proj=poly.map(function(p){return p[0]*nx+p[1]*ny;});
+    var lo=Math.min.apply(null,proj),hi=Math.max.apply(null,proj);
+
+    // Binary search offset so that area on the "<=" side equals frac*totalArea
+    var totalArea=polyArea(poly);
+    var targetArea=totalArea*frac;
+    var loC=lo,hiC=hi,cval=(lo+hi)/2;
+    for(var iter=0;iter<24;iter++){
+      cval=(loC+hiC)/2;
+      var sub=clipHalf(poly,nx,ny,cval);
+      var area=sub.length>=3?polyArea(sub):0;
+      if(area<targetArea)loC=cval;else hiC=cval;
     }
-    
-    // Fallback: straight cut if diagonal failed
-    if(p1.length<3||p2.length<3){
-      if(vert){
-        var xm2=bx+bw*ratio;
-        p1=clipByLine(poly,xm2,by-1,xm2,by+bh+1,true);
-        p2=clipByLine(poly,xm2,by-1,xm2,by+bh+1,false);
-      }else{
-        var ym2=by+bh*ratio;
-        p1=clipByLine(poly,bx-1,ym2,bx+bw+1,ym2,true);
-        p2=clipByLine(poly,bx-1,ym2,bx+bw+1,ym2,false);
-      }
+    var poly1=clipHalf(poly,nx,ny,cval);
+    var poly2=clipHalf(poly,-nx,-ny,-cval);
+
+    if(poly1.length<3||poly2.length<3){
+      // Fallback axis-aligned split
+      var xs=poly.map(function(q){return q[0]}),ys=poly.map(function(q){return q[1]});
+      var bx=Math.min.apply(null,xs),by=Math.min.apply(null,ys);
+      var bw=Math.max.apply(null,xs)-bx,bh=Math.max.apply(null,ys)-by;
+      if(bw>=bh){var xm=bx+bw*frac;poly1=clipHalf(poly,1,0,xm);poly2=clipHalf(poly,-1,0,-xm);}
+      else{var ym=by+bh*frac;poly1=clipHalf(poly,0,1,ym);poly2=clipHalf(poly,0,-1,-ym);}
     }
-    
-    if(p1.length<3||p2.length<3){
-      // Last resort: put them both as one
-      items.forEach(function(it){pushSec(it,poly);});
-      return;
-    }
-    
-    processRemaining(g1,p1,depth+1);
-    processRemaining(g2,p2,depth+1);
+    if(poly1.length<3||poly2.length<3){items.forEach(function(it){pushSec(it,poly);});return;}
+
+    split(g1,poly1,depth+1);
+    split(g2,poly2,depth+1);
   }
-  
-  processRemaining(so,arena,0);
+
+  split(so,[[0,0],[sz,0],[sz,sz],[0,sz]],0);
   return sec;}
 
 function polygonCentroid(poly){
   var cx=0,cy=0,a=0;
-  for(var i=0;i<poly.length;i++){
-    var j=(i+1)%poly.length;
-    var cross=poly[i][0]*poly[j][1]-poly[j][0]*poly[i][1];
-    a+=cross;cx+=(poly[i][0]+poly[j][0])*cross;cy+=(poly[i][1]+poly[j][1])*cross;
-  }
-  a/=2;
-  if(Math.abs(a)<0.001){var sx=0,sy=0;poly.forEach(function(p){sx+=p[0];sy+=p[1];});return [sx/poly.length,sy/poly.length];}
-  return [cx/(6*a),cy/(6*a)];
+  for(var i=0;i<poly.length;i++){var j=(i+1)%poly.length;var cross=poly[i][0]*poly[j][1]-poly[j][0]*poly[i][1];a+=cross;cx+=(poly[i][0]+poly[j][0])*cross;cy+=(poly[i][1]+poly[j][1])*cross;}
+  a/=2;if(Math.abs(a)<0.001){var sx=0,sy=0;poly.forEach(function(p){sx+=p[0];sy+=p[1];});return[sx/poly.length,sy/poly.length];}
+  return[cx/(6*a),cy/(6*a)];
 }
 
 // Generate trajectory from specific parameters
@@ -218,7 +176,7 @@ function calcTrajRigged(targetName,sectors){
 function recalc(){G.pool=Math.round(G.pl.reduce((s,p)=>s+p.bet,0)*100)/100;try{G.sectors=calcSec(G.pl,G.pool,C.ARENA);}catch(e){console.error('calcSec error:',e.message,e.stack);G.sectors=[];}}
 
 const BN=['@cryptowolf','@moonshot','@diamond_hands','@whale_alert','@degen_king','@ton_maxi','@hodler42','@nft_queen','@alpha_hunter','@block_wizard','@satoshi_jr','@pump_master','@chain_smoker','@gas_fee','@rug_check','@yield_farm','@stake_pool','@swap_lord','@bridge_troll','@dao_voter','@meta_verse','@pixel_punk','@ape_strong','@bear_trap','@bull_run','Grey Oscar','Anna K.','Max Power','Luna Star','Crypto Ninja','Блокчейн Бро','ТОН Мастер','Кит Моби','Алмазные Руки','Король Дегенов'];
-const BC=['#FF4444','#00D4AA','#2196F3','#FF9800','#E91E63','#8BC34A','#9C27B0','#00BCD4','#FF5722','#CDDC39','#3F51B5','#FF6D00','#26A69A','#D81B60','#7C4DFF','#F44336','#00E5FF','#76FF03','#FFD600','#AA00FF','#1DE9B6','#FF3D00','#304FFE','#C6FF00','#FF1744','#00B8D4','#64DD17','#DD2C00','#6200EA','#00C853','#F50057','#18FFFF'];
+const BC=['#00E5FF','#FF1744','#76FF03','#FFEA00','#D500F9','#FF6D00','#1DE9B6','#F50057','#00E676','#FF3D00','#2979FF','#FFC400','#E040FB','#00B0FF','#C6FF00','#FF4081','#18FFFF','#64DD17','#FFD600','#AA00FF','#FF9100','#00BFA5','#FF5252','#B2FF59','#40C4FF','#EEFF41','#FF80AB','#84FFFF','#A7FFEB','#FFFF00','#7C4DFF','#69F0AE'];
 function gI(n){if(n.startsWith('@'))return n.substring(1,3).toUpperCase();const p=n.split(/[\s.]+/).filter(Boolean);return p.length>=2?(p[0][0]+p[1][0]).toUpperCase():n.substring(0,2).toUpperCase();}
 let ubn=new Set(),rc=0;
 function gBB(c){const r={mass:[0.1,10],mid:[10,100],shark:[100,1000],whale:[1000,50000]}[c];return Math.round(Math.exp(Math.log(r[0])+Math.random()*(Math.log(r[1])-Math.log(r[0])))*100)/100;}
@@ -318,4 +276,4 @@ io.on('connection',sk=>{
   sk.on('disconnect',()=>{const username=sockToUser.get(sk.id);if(username)userToSock.delete(username);sockToUser.delete(sk.id);});
 });
 
-server.listen(PORT,()=>{console.log(`\n🎰 Roulette v10 :${PORT}\n`);reset();});
+server.listen(PORT,()=>{console.log(`\n🎰 Roulette v25 :${PORT}\n`);reset();});

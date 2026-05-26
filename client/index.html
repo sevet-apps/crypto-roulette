@@ -3,7 +3,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Crypto Roulette v20</title>
+<title>Crypto Roulette v25</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
 <script src="https://unpkg.com/@lottiefiles/lottie-player@2.0.8/dist/lottie-player.js"></script>
@@ -298,9 +298,9 @@ function render(){requestAnimationFrame(render);if(!S)return;var s=sc;
       cx.beginPath();cx.moveTo(poly[0][0]*s,poly[0][1]*s);
       for(var pi=1;pi<poly.length;pi++)cx.lineTo(poly[pi][0]*s,poly[pi][1]*s);
       cx.closePath();
-      // Solid fill — guaranteed to work
-      cx.fillStyle=sec.color;cx.globalAlpha=.92;cx.fill();
-      cx.globalAlpha=1;cx.strokeStyle='rgba(0,0,0,.5)';cx.lineWidth=1.5;cx.stroke();
+      // Solid saturated fill
+      cx.fillStyle=sec.color;cx.globalAlpha=1;cx.fill();
+      cx.strokeStyle='rgba(255,255,255,.25)';cx.lineWidth=2;cx.stroke();
       // Winner glow
       if(S.ph==='result'&&S.w&&S.w.sid===sec.pid){cx.save();cx.strokeStyle='#0098EA';cx.lineWidth=3;cx.shadowColor='#0098EA';cx.shadowBlur=20;cx.beginPath();cx.moveTo(poly[0][0]*s,poly[0][1]*s);for(var pi2=1;pi2<poly.length;pi2++)cx.lineTo(poly[pi2][0]*s,poly[pi2][1]*s);cx.closePath();cx.stroke();cx.restore();}
     } else {
