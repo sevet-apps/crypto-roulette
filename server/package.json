@@ -1,16 +1,13 @@
 {
-  "name": "crypto-roulette-server",
+  "name": "anticasino-arena-server",
   "version": "1.0.0",
-  "description": "Proportional crypto roulette with physics - Authoritative Server",
+  "private": true,
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "bot": "node bot.js",
-    "dev": "node --watch server.js"
+    "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "socket.io": "^4.7.4",
-    "cors": "^2.8.5"
+    "express": "^4.19.2",
+    "node-telegram-bot-api": "^0.66.0"
   }
 }
