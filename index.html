@@ -549,7 +549,8 @@ const avatarCache={};
 function loadAvatar(url){
   if(!url) return null;
   if(avatarCache[url]!==undefined) return avatarCache[url];
-  const img=new Image(); img.crossOrigin='anonymous';
+  const img=new Image();   // без crossOrigin: серверы аватарок тг не отдают CORS,
+                           // а для рисования на канвасе он и не нужен
   img.onload=()=>{avatarCache[url].ready=true;};
   img.onerror=()=>{avatarCache[url]=null;};
   img.src=url;

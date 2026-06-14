@@ -177,6 +177,9 @@ function newRound(){
   state.bettingEnds = Date.now()+BETTING_MS;
   scheduleBots();
   io.emit('round', { gameId:state.gameId, players:[], bettingMs:BETTING_MS, elapsedMs:0 });
+  // историю прошлой игры рассылаем только сейчас — к этому моменту
+  // анимация шайбы у всех уже доиграла, и спойлера победителя не будет
+  io.emit('history', history);
   setTimeout(lockRound, BETTING_MS);
 }
 
@@ -267,7 +270,6 @@ function lockRound(){
     winnerName:winner?winner.name:'', winnerInitials:winner?winner.initials:'',
     winnerAvatar:winner?(winner.avatar||null):null };
   io.emit('resolve', state.resolve);
-  io.emit('history', history);
   setTimeout(newRound, RESOLVE_MS);
 }
 
