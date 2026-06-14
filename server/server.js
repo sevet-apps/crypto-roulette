@@ -50,6 +50,16 @@ function addDep(u, amt){
   depToday[u].sum += amt;
 }
 
+// ---- глобальная история игр (одна на всех) ----
+const HIST_FILE = path.join(__dirname, 'history.json');
+let history = [];
+try { history = JSON.parse(fs.readFileSync(HIST_FILE, 'utf8')); } catch (e) {}
+function pushHistory(rec){
+  history.unshift(rec);
+  history = history.slice(0, 300);
+  try{ fs.writeFileSync(HIST_FILE, JSON.stringify(history)); }catch(e){}
+}
+
 // ================= геометрия и физика (1в1 с клиентом) =================
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
@@ -230,6 +240,8 @@ function lockRound(){
     winnerId = state.players.length ? winnerOfPoint(simPoint(seed), sectors, state.players) : null;
   }
   state.seed = seed;
+  // подкрутка действует только на одну игру — сбрасываем сразу после применения
+  if(state.rig) state.rig=null;
 
   const winner = state.players.find(p=>p.id===winnerId);
 
@@ -244,9 +256,18 @@ function lockRound(){
         if(u===winner.username) io.to(sid).emit('balance',{ balance:getBalance(u) });
       }
     }
+    // глобальная история — одна на всех, копится на сервере
+    pushHistory({
+      gameId:state.gameId, name:winner.name, initials:winner.initials,
+      avatar:winner.avatar||null, amount:+takehome.toFixed(2), mult:+mult.toFixed(2), t:Date.now()
+    });
   }
-  state.resolve = { seed:state.seed, players:publicPlayers(), winnerId, takehome:+takehome.toFixed(2), mult:+mult.toFixed(2) };
+  state.resolve = { seed:state.seed, players:publicPlayers(), winnerId,
+    takehome:+takehome.toFixed(2), mult:+mult.toFixed(2),
+    winnerName:winner?winner.name:'', winnerInitials:winner?winner.initials:'',
+    winnerAvatar:winner?(winner.avatar||null):null };
   io.emit('resolve', state.resolve);
+  io.emit('history', history);
   setTimeout(newRound, RESOLVE_MS);
 }
 
@@ -256,12 +277,18 @@ const sockUser = {};  // socketId -> username
 
 io.on('connection', (sock)=>{
   // снапшот текущего состояния
-  const snap = (state.phase==='betting')
-    ? { gameId:state.gameId, phase:'betting', players:publicPlayers(),
-        bettingMs:BETTING_MS, elapsedMs:Math.max(0, BETTING_MS-(state.bettingEnds-Date.now())) }
-    : { gameId:state.gameId, phase:'resolving', players:publicPlayers(),
-        bettingMs:BETTING_MS, elapsedMs:BETTING_MS, resolve:state.resolve };
-  sock.emit('snapshot', snap);
+  function buildSnap(){
+    return (state.phase==='betting')
+      ? { gameId:state.gameId, phase:'betting', players:publicPlayers(),
+          bettingMs:BETTING_MS, elapsedMs:Math.max(0, BETTING_MS-(state.bettingEnds-Date.now())) }
+      : { gameId:state.gameId, phase:'resolving', players:publicPlayers(),
+          bettingMs:BETTING_MS, elapsedMs:BETTING_MS, resolve:state.resolve };
+  }
+  sock.emit('snapshot', buildSnap());
+  sock.emit('history', history);
+
+  // переспрос состояния (например когда апку вернули из фона)
+  sock.on('resync', ()=>{ sock.emit('snapshot', buildSnap()); });
 
   sock.on('auth', (d)=>{
     const u = (d && d.username) ? (''+d.username).toLowerCase() : null;
@@ -351,6 +378,7 @@ bot.onText(/^\/balance/, (msg)=>{
 
 app.use((req,res,next)=>{ res.setHeader('Access-Control-Allow-Origin','*'); next(); });
 app.get('/api/balance/:username', (req,res)=>{ const u=req.params.username.toLowerCase().replace('@',''); res.json({ username:u, balance:getBalance(u) }); });
+app.get('/api/history', (req,res)=>{ res.json(history); });
 app.get('/', (req,res)=>res.send('arena online ok, game #'+state.gameId));
 
 const PORT = process.env.PORT || 3000;
