@@ -426,7 +426,10 @@ try{
   // не даём свернуть апку случайным свайпом вниз
   tg?.disableVerticalSwipes?.();
   tg?.disableClosingConfirmation?.();
-  if(tg?.isVersionAtLeast?.('8.0')) tg?.requestFullscreen?.();
+  // полноэкранный режим только на телефонах, на десктопе не растягиваем
+  const plat = tg?.platform || '';
+  const isMobile = plat==='android' || plat==='ios';
+  if(isMobile && tg?.isVersionAtLeast?.('8.0')) tg?.requestFullscreen?.();
 }catch(e){}
 
 const MIN_BET = 0.1;
@@ -569,7 +572,7 @@ function updateCamera(dt){
     const sp=Math.hypot(puck.vx,puck.vy);
     if(phase==='stopped') tz=2.4;
     else if(sp<1100) tz=1+1.4*Math.min(1,(1100-sp)/950);
-    if(tz>1.02){ tx=puck.x; ty=puck.y; }
+    if(tz>1.02){ tx=puck.dx; ty=puck.dy; }
   }
   const k=Math.min(1,dt*3.9);
   cam.z+=(tz-cam.z)*k; cam.x+=(tx-cam.x)*k; cam.y+=(ty-cam.y)*k;
@@ -663,23 +666,24 @@ function drawSparks(){
 
 function drawPuck(){
   const R=PUCK_R*2;
+  const X=puck.dx, Y=puck.dy;
   ctx.save();
   ctx.shadowColor='rgba(255,255,255,.85)';ctx.shadowBlur=16;
-  ctx.beginPath();ctx.arc(puck.x,puck.y,R,0,7);
+  ctx.beginPath();ctx.arc(X,Y,R,0,7);
   ctx.lineWidth=R*0.42;ctx.strokeStyle='#fff';ctx.stroke();
   ctx.restore();
-  ctx.beginPath();ctx.arc(puck.x,puck.y,R*0.5,0,7);
+  ctx.beginPath();ctx.arc(X,Y,R*0.5,0,7);
   ctx.fillStyle='rgba(40,40,46,.45)';ctx.fill();
   const cl=R*0.32;
   ctx.strokeStyle='#cfcfd6';ctx.lineWidth=R*0.07;ctx.lineCap='round';
   ctx.beginPath();
-  ctx.moveTo(puck.x-cl,puck.y);ctx.lineTo(puck.x+cl,puck.y);
-  ctx.moveTo(puck.x,puck.y-cl);ctx.lineTo(puck.x,puck.y+cl);
+  ctx.moveTo(X-cl,Y);ctx.lineTo(X+cl,Y);
+  ctx.moveTo(X,Y-cl);ctx.lineTo(X,Y+cl);
   ctx.stroke();
   if(phase==='spin'||phase==='aim'){
     const base=R*1.15, len=R*2.2;
-    const bx=puck.x+Math.cos(puck.dispAngle)*base, by=puck.y+Math.sin(puck.dispAngle)*base;
-    const ex=puck.x+Math.cos(puck.dispAngle)*len, ey=puck.y+Math.sin(puck.dispAngle)*len;
+    const bx=X+Math.cos(puck.dispAngle)*base, by=Y+Math.sin(puck.dispAngle)*base;
+    const ex=X+Math.cos(puck.dispAngle)*len, ey=Y+Math.sin(puck.dispAngle)*len;
     ctx.strokeStyle='#fff';ctx.lineWidth=R*0.22;ctx.lineCap='round';
     ctx.beginPath();ctx.moveTo(bx,by);ctx.lineTo(ex,ey);ctx.stroke();
     const a1=puck.dispAngle+2.5,a2=puck.dispAngle-2.5,h=R*0.7;
@@ -706,7 +710,8 @@ function puckFromSeed(seed){
   // то же направление, куда полетит шайба, без резкого скачка
   return { x,y, angle, dispAngle:angle, pauseT:0, t:0,
            spinT:0, spinDur:2.0, spinFrom:angle, spinTarget:angle+Math.PI*2*turns,
-           vx:Math.cos(angle)*speed, vy:Math.sin(angle)*speed, stopped:false };
+           vx:Math.cos(angle)*speed, vy:Math.sin(angle)*speed, stopped:false,
+           px:x, py:y, dx:x, dy:y };
 }
 
 function flightStep(p){
@@ -747,13 +752,21 @@ function loop(ts){
   }
   else if(phase==='aim'&&puck){
     puck.pauseT+=dt;
-    if(puck.pauseT>=AIM_PAUSE){ phase='flight'; acc=0; sparks=[]; }
+    if(puck.pauseT>=AIM_PAUSE){ phase='flight'; acc=0; sparks=[]; puck.px=puck.x; puck.py=puck.y; }
   }
   else if(phase==='flight'&&puck){
     acc+=dt;
     let steps=0;
-    while(acc>=DT && steps<8){ flightStep(puck); acc-=DT; steps++; if(puck.stopped) break; }
-    if(acc>DT*8) acc=0;   // не копим долг на слабых устройствах
+    while(acc>=DT && steps<8){
+      puck.px=puck.x; puck.py=puck.y;   // позиция до шага
+      flightStep(puck); acc-=DT; steps++;
+      if(puck.stopped) break;
+    }
+    if(acc>DT*8) acc=0;
+    // интерполяция между шагами физики — плавно на дисплеях 120 Гц
+    const a=puck.stopped?1:Math.min(1, acc/DT);
+    puck.dx=puck.px+(puck.x-puck.px)*a;
+    puck.dy=puck.py+(puck.y-puck.py)*a;
     if(puck.stopped) puckStopped();
   }
   else if(phase==='stopped'){ stopT+=dt; if(stopT>=STOP_HOLD){phase='overview';ovT=0;} }
