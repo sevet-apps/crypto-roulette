@@ -184,6 +184,11 @@
   .dep-btn:active{transform:scale(.98)}
 
   /* список истории */
+  /* компактный слайдер на странице топа */
+  .hseg{position:relative;display:flex;background:#1d1d22;border-radius:16px;padding:4px;margin-bottom:14px;max-width:230px}
+  .hseg-pill{position:absolute;top:4px;left:4px;bottom:4px;width:calc(50% - 4px);background:#3a3a40;border-radius:13px;transition:transform .25s cubic-bezier(.3,1.1,.4,1)}
+  .hseg button{flex:1;z-index:1;background:transparent;border:none;cursor:pointer;color:var(--muted);font-weight:700;font-size:13px;padding:8px 4px;transition:color .2s}
+  .hseg button.sel{color:#fff}
   .hist-list-item{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:18px;padding:13px 15px;margin-bottom:9px}
   .hist-li-ava{width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#fff}
   .hist-li-ava img{width:100%;height:100%;object-fit:cover}
@@ -382,6 +387,11 @@
     <div class="page-top">
       <button class="icon-btn" onclick="closeHistory()"><svg class="ic"><use href="#i-x"/></svg></button>
       <h2 id="histTitle">История</h2>
+    </div>
+    <div class="hseg" id="histSeg" style="display:none">
+      <div class="hseg-pill" id="histSegPill"></div>
+      <button id="histTabWin" onclick="setTopSort('win')">По сумме</button>
+      <button id="histTabMult" onclick="setTopSort('mult')">По иксу</button>
     </div>
     <div id="histList"></div>
   </div>
@@ -1138,25 +1148,46 @@ function histBody(rec){
     <div class="hist-name">${rec.name}</div>
     <div class="hist-amt">+${fmt(rec.amount)} <svg class="tonic"><use href="#i-ton"/></svg></div>`;
 }
+let histMode='last', topSort='win';
 function openHistory(mode){
-  const h=getHistory();
-  const list = mode==='top'? [...h].sort((a,b)=>b.amount-a.amount) : h;
-  document.getElementById('histTitle').textContent = mode==='top'?'Топ выигрышей':'Последние игры';
-  const el=document.getElementById('histList');
-  if(!list.length){ el.innerHTML='<div class="hist-empty">Пока нет сыгранных игр</div>'; }
-  else{
-    el.innerHTML=list.slice(0,100).map(rec=>{
-      const grad=PALETTE[(rec.name.length)%PALETTE.length];
-      const time=new Date(rec.t).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-      return `<div class="hist-list-item">
-        <div class="hist-li-ava" style="background:linear-gradient(135deg,${grad[0]},${grad[1]})">${avaInner(rec)}</div>
-        <div class="hist-li-info"><div class="hist-li-name">${rec.name}</div>
-          <div class="hist-li-sub">Игра #${rec.gameId} · ${time} · ${rec.mult.toFixed(2)}x</div></div>
-        <div class="hist-li-amt">+${fmt(rec.amount)} <svg class="tonic"><use href="#i-ton"/></svg></div>
-      </div>`;
-    }).join('');
-  }
+  histMode=mode;
+  document.getElementById('histTitle').textContent = mode==='top'?'Топ':'Последние игры';
+  document.getElementById('histSeg').style.display = mode==='top'?'flex':'none';
+  if(mode==='top'){ setTopSort(topSort, true); }
+  else renderHistList();
   document.getElementById('histPage').classList.add('open');
+}
+function setTopSort(s, silent){
+  topSort=s;
+  document.getElementById('histSegPill').style.transform = s==='mult'?'translateX(100%)':'translateX(0)';
+  document.getElementById('histTabWin').classList.toggle('sel', s==='win');
+  document.getElementById('histTabMult').classList.toggle('sel', s==='mult');
+  renderHistList();
+}
+function renderHistList(){
+  const h=getHistory();
+  let list;
+  if(histMode==='top'){
+    list = topSort==='mult'
+      ? [...h].sort((a,b)=>b.mult-a.mult)
+      : [...h].sort((a,b)=>b.amount-a.amount);
+  }else list=h;
+  const el=document.getElementById('histList');
+  if(!list.length){ el.innerHTML='<div class="hist-empty">Пока нет сыгранных игр</div>'; return; }
+  el.innerHTML=list.slice(0,100).map(rec=>{
+    const grad=PALETTE[(rec.name.length)%PALETTE.length];
+    const time=new Date(rec.t).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    // в режиме «по иксу» крупно показываем икс, иначе сумму
+    const amtHtml = (histMode==='top'&&topSort==='mult')
+      ? `<div class="hist-li-amt">${rec.mult.toFixed(2)}x</div>`
+      : `<div class="hist-li-amt">+${fmt(rec.amount)} <svg class="tonic"><use href="#i-ton"/></svg></div>`;
+    return `<div class="hist-list-item">
+      <div class="hist-li-ava" style="background:linear-gradient(135deg,${grad[0]},${grad[1]})">${avaInner(rec)}</div>
+      <div class="hist-li-info"><div class="hist-li-name">${rec.name}</div>
+        <div class="hist-li-sub">Игра #${rec.gameId} · ${time} · ${rec.mult.toFixed(2)}x</div></div>
+      ${amtHtml}
+    </div>`;
+  }).join('');
 }
 function closeHistory(){document.getElementById('histPage').classList.remove('open');}
 

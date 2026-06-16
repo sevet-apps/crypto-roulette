@@ -25,17 +25,41 @@ const RESOLVE_MS = 17000;             // время на анимацию+окн
 const DEPOSIT_DAILY_LIMIT = 1000;
 
 const bot = new TelegramBot(TOKEN, { polling: true });
+
+// ссылка на апку для инлайн-карточки статистики
+const APP_LINK = 'https://t.me/AntiCasinoBot';
+const APP_NAME = 'Anticasino';
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 
-// ---- балансы (файл; для прода лучше Supabase) ----
+// ---- хранилище: Supabase (постоянное) с фолбэком на файлы ----
+// если заданы SUPABASE_URL и SUPABASE_KEY — данные переживают рестарты/деплои Render.
+// иначе используется локальный файл (на бесплатном Render он стирается при рестарте).
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || '';
+let supa = null;
+if (SUPABASE_URL && SUPABASE_KEY) {
+  try {
+    const { createClient } = require('@supabase/supabase-js');
+    supa = createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } });
+    console.log('Supabase подключён — данные постоянные');
+  } catch(e){ console.error('Supabase не загрузился, работаем на файлах:', e.message); }
+}
+
+// одна строка с состоянием игры (id=1): { game_id }
+let gameCounter = 0;
+
+// ---- балансы ----
 const DB_FILE = path.join(__dirname, 'balances.json');
 let balances = {};
-try { balances = JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch (e) {}
-function saveBalances(){ try{ fs.writeFileSync(DB_FILE, JSON.stringify(balances,null,2)); }catch(e){} }
+function saveBalancesFile(){ try{ fs.writeFileSync(DB_FILE, JSON.stringify(balances,null,2)); }catch(e){} }
 function getBalance(u){ return balances[u] || 0; }
-function setBalance(u,v){ balances[u] = +(+v).toFixed(2); saveBalances(); }
+function setBalance(u,v){
+  balances[u] = +(+v).toFixed(2);
+  if(supa){ supa.from('balances').upsert({ username:u, balance:balances[u] }).then(()=>{},()=>{}); }
+  else saveBalancesFile();
+}
 
 const depToday = {};                  // {username: {date, sum}}
 function depLeft(u){
@@ -53,11 +77,75 @@ function addDep(u, amt){
 // ---- глобальная история игр (одна на всех) ----
 const HIST_FILE = path.join(__dirname, 'history.json');
 let history = [];
-try { history = JSON.parse(fs.readFileSync(HIST_FILE, 'utf8')); } catch (e) {}
 function pushHistory(rec){
   history.unshift(rec);
   history = history.slice(0, 300);
-  try{ fs.writeFileSync(HIST_FILE, JSON.stringify(history)); }catch(e){}
+  if(supa){
+    supa.from('history').insert({
+      game_id:rec.gameId, name:rec.name, initials:rec.initials,
+      avatar:rec.avatar, amount:rec.amount, mult:rec.mult, t:rec.t
+    }).then(()=>{},()=>{});
+  }else{
+    try{ fs.writeFileSync(HIST_FILE, JSON.stringify(history)); }catch(e){}
+  }
+}
+
+// ---- статистика игроков ----
+const STATS_FILE = path.join(__dirname, 'stats.json');
+let stats = {};
+let statsDirty = {};   // {username: true} — кого надо записать
+function saveStatsFile(){ try{ fs.writeFileSync(STATS_FILE, JSON.stringify(stats)); }catch(e){} }
+function getStats(u){ return stats[u] || { name:'', games:0, wins:0, wagered:0, won:0 }; }
+function statBet(u, name, amount, firstBet){
+  const s = stats[u] || { name, games:0, wins:0, wagered:0, won:0 };
+  s.name = name || s.name;
+  if(firstBet) s.games += 1;
+  s.wagered += amount;
+  stats[u] = s; statsDirty[u] = true;
+}
+function statWin(u, takehome){
+  const s = stats[u]; if(!s) return;
+  s.wins += 1; s.won += takehome;
+  statsDirty[u] = true;
+}
+// сбрасываем изменившуюся статистику раз в 8с (батчем, без нагрузки на каждой ставке)
+setInterval(()=>{
+  const users = Object.keys(statsDirty);
+  if(!users.length) return;
+  statsDirty = {};
+  if(supa){
+    const rows = users.map(u=>({ username:u, name:stats[u].name, games:stats[u].games,
+      wins:stats[u].wins, wagered:+stats[u].wagered.toFixed(2), won:+stats[u].won.toFixed(2) }));
+    supa.from('stats').upsert(rows).then(()=>{},()=>{});
+  }else saveStatsFile();
+}, 8000);
+
+// ---- загрузка всех данных при старте ----
+async function loadAll(){
+  if(supa){
+    try{
+      const b = await supa.from('balances').select('*');
+      if(b.data) for(const r of b.data) balances[r.username]=+r.balance;
+      const s = await supa.from('stats').select('*');
+      if(s.data) for(const r of s.data) stats[r.username]={ name:r.name, games:r.games, wins:r.wins, wagered:+r.wagered, won:+r.won };
+      const h = await supa.from('history').select('*').order('t',{ascending:false}).limit(300);
+      if(h.data) history = h.data.map(r=>({ gameId:r.game_id, name:r.name, initials:r.initials, avatar:r.avatar, amount:+r.amount, mult:+r.mult, t:+r.t }));
+      const g = await supa.from('game_state').select('*').eq('id',1).maybeSingle();
+      if(g.data && g.data.game_id) gameCounter = g.data.game_id;
+      console.log('Загружено из Supabase: игра #'+gameCounter+', история '+history.length);
+    }catch(e){ console.error('Ошибка загрузки из Supabase:', e.message); }
+  }else{
+    try{ balances = JSON.parse(fs.readFileSync(DB_FILE,'utf8')); }catch(e){}
+    try{ stats = JSON.parse(fs.readFileSync(STATS_FILE,'utf8')); }catch(e){}
+    try{ history = JSON.parse(fs.readFileSync(HIST_FILE,'utf8')); }catch(e){}
+    try{ gameCounter = JSON.parse(fs.readFileSync(path.join(__dirname,'gamestate.json'),'utf8')).game_id||0; }catch(e){}
+  }
+}
+
+// сохраняем номер игры, чтобы счётчик не сбрасывался при рестарте
+function saveGameCounter(){
+  if(supa){ supa.from('game_state').upsert({ id:1, game_id:gameCounter }).then(()=>{},()=>{}); }
+  else { try{ fs.writeFileSync(path.join(__dirname,'gamestate.json'), JSON.stringify({game_id:gameCounter})); }catch(e){} }
 }
 
 // ================= геометрия и физика (1в1 с клиентом) =================
@@ -145,6 +233,7 @@ let state = {
   bigCarry: null,            // {who, amount, gamesLeft} — крупный игрок докидывает несколько игр
   sharkSession: 0,           // сколько игр подряд заходят акулы
   rig: null,                 // username, которому подкручиваем (режим админа)
+  pending: null,             // отложенный выигрыш (начисляем после анимации)
 };
 
 function nextAngle(){
@@ -169,7 +258,21 @@ function addPlayer(who, amount){
 }
 
 function newRound(){
-  state.gameId++;
+  // применяем отложенный выигрыш прошлой игры — анимация уже доиграла у всех
+  if(state.pending){
+    const pend=state.pending; state.pending=null;
+    if(pend.username){
+      setBalance(pend.username, getBalance(pend.username)+pend.takehome);
+      statWin(pend.username, pend.takehome);
+      for(const [sid,u] of Object.entries(sockUser)){
+        if(u===pend.username) io.to(sid).emit('balance',{ balance:getBalance(u) });
+      }
+    }
+    pushHistory(pend.hist);
+  }
+  gameCounter++;
+  state.gameId = gameCounter;
+  saveGameCounter();
   state.phase='betting';
   state.players=[];
   state.lastAngle=null;
@@ -253,17 +356,16 @@ function lockRound(){
     const net=Math.max(0, bank-winner.amount);
     takehome=winner.amount + net*(1-COMMISSION);
     mult=winner.amount>0? takehome/winner.amount : 0;
-    if(!winner.isBot && winner.username){
-      setBalance(winner.username, getBalance(winner.username)+takehome);
-      for(const [sid,u] of Object.entries(sockUser)){
-        if(u===winner.username) io.to(sid).emit('balance',{ balance:getBalance(u) });
+    // начисление и история откладываются до конца анимации (старт след. раунда),
+    // чтобы баланс и «Последняя игра» не появлялись раньше остановки шайбы
+    state.pending = {
+      username: (!winner.isBot && winner.username) ? winner.username : null,
+      takehome,
+      hist: {
+        gameId:state.gameId, name:winner.name, initials:winner.initials,
+        avatar:winner.avatar||null, amount:+takehome.toFixed(2), mult:+mult.toFixed(2), t:Date.now()
       }
-    }
-    // глобальная история — одна на всех, копится на сервере
-    pushHistory({
-      gameId:state.gameId, name:winner.name, initials:winner.initials,
-      avatar:winner.avatar||null, amount:+takehome.toFixed(2), mult:+mult.toFixed(2), t:Date.now()
-    });
+    };
   }
   state.resolve = { seed:state.seed, players:publicPlayers(), winnerId,
     takehome:+takehome.toFixed(2), mult:+mult.toFixed(2),
@@ -310,8 +412,10 @@ io.on('connection', (sock)=>{
     const bal=getBalance(u);
     if(bal<amount){ sock.emit('reject',{msg:'Недостаточно TON'}); return; }
     setBalance(u, bal-amount);
+    const firstBet = !state.players.find(p=>p.id==='u_'+u);
     addPlayer({ id:'u_'+u, name:sock.data.name, initials:sock.data.initials,
                 avatar:sock.data.avatar, anon:false, isBot:false, username:u }, amount);
+    statBet(u, sock.data.name, amount, firstBet);
     sock.emit('balance',{ balance:getBalance(u) });
     io.emit('bet', { players: publicPlayers() });
   });
@@ -335,6 +439,56 @@ io.on('connection', (sock)=>{
 // ================= телеграм-бот =================
 
 function isOwner(msg){ return msg.from && (msg.from.id===OWNER_ID || (msg.from.username||'').toLowerCase()===OWNER_USERNAME); }
+
+// инлайн-режим: @bot username -> карточка статистики игрока
+bot.on('inline_query', (q)=>{
+  const raw = (q.query||'').trim().replace(/^@/,'').toLowerCase();
+  const results = [];
+
+  if(raw){
+    const s = stats[raw];
+    if(s){
+      const winrate = s.games>0 ? (s.wins/s.games*100) : 0;
+      const earned = s.won - s.wagered;        // заработано = выиграно минус поставлено
+      const display = s.name || ('@'+raw);
+      const text =
+        `Игрок: ${display} (@${raw})\n\n`+
+        `PVP Arena\n`+
+        `Игр: ${s.games} (побед: ${s.wins}, winrate: ${winrate.toFixed(1)}%)\n`+
+        `Поставлено: ${fmtTon(s.wagered)} TON\n`+
+        `Выиграно: ${fmtTon(s.won)} TON\n`+
+        `Заработано: ${earned>=0?'+':''}${fmtTon(earned)} TON\n\n`+
+        `[${APP_NAME}](${APP_LINK})`;
+      results.push({
+        type:'article', id:'stat_'+raw,
+        title:`Статистика ${display}`,
+        description:`Игр: ${s.games} · winrate ${winrate.toFixed(0)}% · заработано ${earned>=0?'+':''}${fmtTon(earned)} TON`,
+        input_message_content:{ message_text:text, parse_mode:'Markdown', disable_web_page_preview:true },
+      });
+    }else{
+      results.push({
+        type:'article', id:'nostat_'+raw,
+        title:`@${raw} ещё не играл`,
+        description:'Нет статистики по этому игроку',
+        input_message_content:{ message_text:`У @${raw} пока нет статистики в ${APP_NAME}.` },
+      });
+    }
+  }else{
+    results.push({
+      type:'article', id:'hint',
+      title:'Введите юзернейм игрока',
+      description:'Например: @username — покажу статистику ставок',
+      input_message_content:{ message_text:`Чтобы посмотреть статистику игрока в ${APP_NAME}, напиши его юзернейм после имени бота.` },
+    });
+  }
+  bot.answerInlineQuery(q.id, results, { cache_time:5, is_personal:true }).catch(()=>{});
+});
+
+function fmtTon(n){
+  n = +(+n).toFixed(2);
+  if(Math.abs(n)>=1000) return n.toLocaleString('ru-RU');
+  return (n%1===0)? String(n) : n.toFixed(2);
+}
 
 bot.onText(/^\/buy\s+([\d.,]+)\s+@?(\w+)/i, (msg, match)=>{
   if(!isOwner(msg)) return;
@@ -384,4 +538,8 @@ app.get('/api/history', (req,res)=>{ res.json(history); });
 app.get('/', (req,res)=>res.send('arena online ok, game #'+state.gameId));
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, ()=>{ console.log('сервер на порту', PORT); newRound(); });
+server.listen(PORT, async ()=>{
+  console.log('сервер на порту', PORT);
+  await loadAll();
+  newRound();
+});
