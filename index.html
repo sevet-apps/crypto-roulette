@@ -184,10 +184,45 @@
   .dep-btn:active{transform:scale(.98)}
 
   /* список истории */
+  /* банк призовых */
+  .prize-box{background:linear-gradient(160deg,#1e2a22,#15201a);border:1px solid #2a4736;border-radius:24px;padding:18px;text-align:center;margin-bottom:18px}
+  .prize-label{color:#7fcfa0;font-weight:700;font-size:14px;margin-bottom:6px}
+  .prize-amt{display:flex;align-items:center;justify-content:center;gap:8px;font-weight:900;font-size:38px;line-height:1}
+  .prize-amt .tonic{width:30px;height:30px}
+  .prize-sub{color:var(--muted);font-weight:600;font-size:13px;margin-top:8px}
+  .prize-split{color:var(--muted2);font-weight:600;font-size:12px;margin-top:4px}
+  /* пьедестал */
+  .podium{display:flex;align-items:flex-end;justify-content:center;gap:10px;margin-bottom:18px}
+  .pod{flex:1;max-width:120px;display:flex;flex-direction:column;align-items:center}
+  .pod-ava{border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:900;color:#fff;border:3px solid;background:#222}
+  .pod-ava img{width:100%;height:100%;object-fit:cover}
+  .pod.p1 .pod-ava{width:74px;height:74px;font-size:24px;border-color:#ffd23f;box-shadow:0 0 18px rgba(255,210,63,.4)}
+  .pod.p2 .pod-ava{width:60px;height:60px;font-size:20px;border-color:#cfd4dc}
+  .pod.p3 .pod-ava{width:60px;height:60px;font-size:20px;border-color:#e0925a}
+  .pod-name{font-weight:800;font-size:13px;margin-top:8px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pod-profit{font-weight:900;font-size:13px;display:flex;align-items:center;gap:4px;margin-top:2px}
+  .pod-profit .tonic{width:13px;height:13px}
+  .pod-stand{width:100%;border-radius:14px 14px 0 0;margin-top:10px;display:flex;align-items:flex-start;justify-content:center;padding-top:8px;font-weight:900;font-size:22px;color:rgba(255,255,255,.85)}
+  .pod.p1 .pod-stand{height:74px;background:linear-gradient(180deg,#ffd23f,#caa424)}
+  .pod.p2 .pod-stand{height:56px;background:linear-gradient(180deg,#cfd4dc,#9aa0aa)}
+  .pod.p3 .pod-stand{height:44px;background:linear-gradient(180deg,#e0925a,#b06f3e)}
+  /* строки рейтинга */
+  .lb-item{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:18px;padding:12px 15px;margin-bottom:9px}
+  .lb-item.me{box-shadow:inset 0 0 0 1.5px var(--blue)}
+  .lb-rank{font-weight:900;font-size:15px;color:var(--muted);width:26px;text-align:center;flex-shrink:0}
+  .lb-ava{width:38px;height:38px;border-radius:50%;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#fff}
+  .lb-ava img{width:100%;height:100%;object-fit:cover}
+  .lb-name{flex:1;min-width:0;font-weight:800;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lb-profit{font-weight:900;font-size:15px;display:flex;align-items:center;gap:5px;white-space:nowrap}
+  .lb-profit .tonic{width:15px;height:15px}
+  .myplace{position:fixed;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;z-index:95;
+    background:#15151a;border-top:1px solid #2a2a32;padding:14px 16px calc(16px + env(safe-area-inset-bottom));
+    display:flex;align-items:center;gap:12px}
+  .myplace .lb-rank{color:var(--blue)}
   /* компактный слайдер на странице топа */
-  .hseg{position:relative;display:flex;background:#1d1d22;border-radius:16px;padding:4px;margin-bottom:14px;max-width:230px}
-  .hseg-pill{position:absolute;top:4px;left:4px;bottom:4px;width:calc(50% - 4px);background:#3a3a40;border-radius:13px;transition:transform .25s cubic-bezier(.3,1.1,.4,1)}
-  .hseg button{flex:1;z-index:1;background:transparent;border:none;cursor:pointer;color:var(--muted);font-weight:700;font-size:13px;padding:8px 4px;transition:color .2s}
+  .hseg{position:relative;display:flex;background:#1d1d22;border-radius:16px;padding:4px;margin-bottom:14px}
+  .hseg-pill{position:absolute;top:4px;left:4px;bottom:4px;width:calc(25% - 2px);background:#3a3a40;border-radius:13px;transition:transform .42s cubic-bezier(.34,1.56,.5,1)}
+  .hseg button{flex:1;z-index:1;background:transparent;border:none;cursor:pointer;color:var(--muted);font-weight:700;font-size:13px;padding:9px 4px;transition:color .2s;white-space:nowrap}
   .hseg button.sel{color:#fff}
   .hist-list-item{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:18px;padding:13px 15px;margin-bottom:9px}
   .hist-li-ava{width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#fff}
@@ -271,11 +306,11 @@
   </div>
 
   <div class="hist-row">
-    <div class="hist-card" onclick="openHistory('top')">
+    <div class="hist-card" onclick="openHistory('big')">
       <div class="hist-label">Топ игра</div>
       <div class="hist-body" id="topGame"><div class="hist-name" style="color:var(--muted2)">—</div></div>
     </div>
-    <div class="hist-card" onclick="openHistory('last')">
+    <div class="hist-card" onclick="openHistory('date')">
       <div class="hist-label">Последняя игра</div>
       <div class="hist-body" id="lastGame"><div class="hist-name" style="color:var(--muted2)">—</div></div>
     </div>
@@ -312,7 +347,7 @@
     </div>
     <div class="tabbar">
       <button class="tab active"><svg class="ic"><use href="#i-swords"/></svg>Арена</button>
-      <button class="tab" onclick="openHistory('top')"><span class="new">NEW</span><svg class="ic"><use href="#i-trophy"/></svg>Рейтинг</button>
+      <button class="tab" onclick="openLeaderboard()"><span class="new">NEW</span><svg class="ic"><use href="#i-trophy"/></svg>Рейтинг</button>
       <button class="tab profile" onclick="toast('Профиль скоро')"><span class="pava" id="profileAva"></span></button>
     </div>
   </div>
@@ -388,13 +423,34 @@
       <button class="icon-btn" onclick="closeHistory()"><svg class="ic"><use href="#i-x"/></svg></button>
       <h2 id="histTitle">История</h2>
     </div>
-    <div class="hseg" id="histSeg" style="display:none">
+    <div class="hseg" id="histSeg">
       <div class="hseg-pill" id="histSegPill"></div>
-      <button id="histTabWin" onclick="setTopSort('win')">По сумме</button>
-      <button id="histTabMult" onclick="setTopSort('mult')">По иксу</button>
+      <button data-htab="date" onclick="setHistTab('date')">По дате</button>
+      <button data-htab="mult" onclick="setHistTab('mult')">Везучие</button>
+      <button data-htab="big" onclick="setHistTab('big')">Крупные</button>
+      <button data-htab="mine" onclick="setHistTab('mine')">Мои игры</button>
     </div>
     <div id="histList"></div>
   </div>
+</div>
+
+<!-- рейтинг по чистой прибыли -->
+<div class="page" id="lbPage">
+  <div class="page-inner">
+    <div class="page-top">
+      <button class="icon-btn" onclick="closeLeaderboard()"><svg class="ic"><use href="#i-x"/></svg></button>
+      <h2>Рейтинг</h2>
+    </div>
+    <div class="prize-box">
+      <div class="prize-label">Банк призовых</div>
+      <div class="prize-amt"><b id="prizeAmt">0</b> <svg class="tonic"><use href="#i-ton"/></svg></div>
+      <div class="prize-sub" id="prizeSub">Распределится после 100 000 игры</div>
+      <div class="prize-split">1 место — 50% · 2 место — 30% · 3 место — 20%</div>
+    </div>
+    <div class="podium" id="podium"></div>
+    <div id="lbList"></div>
+  </div>
+  <div class="myplace" id="myPlace" style="display:none"></div>
 </div>
 
 <!-- окно победы -->
@@ -457,6 +513,7 @@ let balance = store_get('balance', 25);
 const myUser = tg?.initDataUnsafe?.user;
 const myUsername = myUser?.username ? myUser.username.toLowerCase() : null;
 const myName = myUser?.username ? '@'+myUser.username : (myUser?.first_name || 'Вы');
+const myFullName = [myUser?.first_name, myUser?.last_name].filter(Boolean).join(' ') || myName;
 const myAvatar = myUser?.photo_url || null;
 const ME = { id:'me', name:myName, initials:initialsOf(myUser?.first_name || myName), anon:false, avatar:myAvatar };
 (function(){
@@ -1148,37 +1205,35 @@ function histBody(rec){
     <div class="hist-name">${rec.name}</div>
     <div class="hist-amt">+${fmt(rec.amount)} <svg class="tonic"><use href="#i-ton"/></svg></div>`;
 }
-let histMode='last', topSort='win';
-function openHistory(mode){
-  histMode=mode;
-  document.getElementById('histTitle').textContent = mode==='top'?'Топ':'Последние игры';
-  document.getElementById('histSeg').style.display = mode==='top'?'flex':'none';
-  if(mode==='top'){ setTopSort(topSort, true); }
-  else renderHistList();
+// вкладки: date — по дате, mult — везучие (по иксу), big — крупные (по сумме), mine — мои игры
+const HTAB_ORDER=['date','mult','big','mine'];
+let histTab='date';
+function openHistory(tab){
+  document.getElementById('histTitle').textContent='Рейтинг';
+  setHistTab(tab||'date');
   document.getElementById('histPage').classList.add('open');
 }
-function setTopSort(s, silent){
-  topSort=s;
-  document.getElementById('histSegPill').style.transform = s==='mult'?'translateX(100%)':'translateX(0)';
-  document.getElementById('histTabWin').classList.toggle('sel', s==='win');
-  document.getElementById('histTabMult').classList.toggle('sel', s==='mult');
+function setHistTab(t){
+  histTab=t;
+  const idx=HTAB_ORDER.indexOf(t);
+  document.getElementById('histSegPill').style.transform=`translateX(${idx*100}%)`;
+  document.querySelectorAll('#histSeg button').forEach(b=>b.classList.toggle('sel', b.dataset.htab===t));
   renderHistList();
 }
 function renderHistList(){
   const h=getHistory();
   let list;
-  if(histMode==='top'){
-    list = topSort==='mult'
-      ? [...h].sort((a,b)=>b.mult-a.mult)
-      : [...h].sort((a,b)=>b.amount-a.amount);
-  }else list=h;
+  if(histTab==='date')      list=[...h];                                   // как пришли, по времени
+  else if(histTab==='mult') list=[...h].sort((a,b)=>b.mult-a.mult);        // везучие — по иксу
+  else if(histTab==='big')  list=[...h].sort((a,b)=>b.amount-a.amount);    // крупные — по сумме
+  else if(histTab==='mine') list=h.filter(r=> r.name===myName || r.name===myFullName);  // мои игры
   const el=document.getElementById('histList');
-  if(!list.length){ el.innerHTML='<div class="hist-empty">Пока нет сыгранных игр</div>'; return; }
+  if(!list.length){ el.innerHTML='<div class="hist-empty">Пока нет игр</div>'; return; }
   el.innerHTML=list.slice(0,100).map(rec=>{
     const grad=PALETTE[(rec.name.length)%PALETTE.length];
     const time=new Date(rec.t).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-    // в режиме «по иксу» крупно показываем икс, иначе сумму
-    const amtHtml = (histMode==='top'&&topSort==='mult')
+    // в «везучих» крупно показываем икс, в остальных — сумму
+    const amtHtml = (histTab==='mult')
       ? `<div class="hist-li-amt">${rec.mult.toFixed(2)}x</div>`
       : `<div class="hist-li-amt">+${fmt(rec.amount)} <svg class="tonic"><use href="#i-ton"/></svg></div>`;
     return `<div class="hist-list-item">
@@ -1190,6 +1245,84 @@ function renderHistList(){
   }).join('');
 }
 function closeHistory(){document.getElementById('histPage').classList.remove('open');}
+
+// ===== рейтинг по чистой прибыли =====
+
+let lbData = null;
+function openLeaderboard(){
+  document.getElementById('lbPage').classList.add('open');
+  renderLeaderboard(lbData);   // покажем что есть, пока грузится свежее
+  if(online && socket && socket.connected) socket.emit('leaderboard');
+  else renderLeaderboardLocal();
+}
+function closeLeaderboard(){ document.getElementById('lbPage').classList.remove('open'); }
+
+function lbAva(name, size){
+  const grad=PALETTE[((name||'').length)%PALETTE.length];
+  return `background:linear-gradient(135deg,${grad[0]},${grad[1]})`;
+}
+function lbInitials(name){ return initialsOf(name); }
+
+function renderLeaderboard(d){
+  if(!d){ return; }
+  document.getElementById('prizeAmt').textContent = fmt(d.prizeBank||0);
+  document.getElementById('prizeSub').textContent =
+    `Распределится после ${(d.prizeGame||100000).toLocaleString('ru-RU')} игры · сейчас #${(d.gameId||0).toLocaleString('ru-RU')}`;
+
+  const top = d.top||[];
+  // пьедестал — первая тройка: 2-е слева, 1-е по центру, 3-е справа
+  const pod = document.getElementById('podium');
+  if(top.length>=1){
+    const order=[top[1],top[0],top[2]];
+    const cls=['p2','p1','p3'];
+    pod.style.display='flex';
+    pod.innerHTML = order.map((e,i)=>{
+      if(!e) return `<div class="pod ${cls[i]}" style="visibility:hidden"></div>`;
+      return `<div class="pod ${cls[i]}">
+        <div class="pod-ava" style="${lbAva(e.name)}">${lbInitials(e.name)}</div>
+        <div class="pod-name">${e.name}</div>
+        <div class="pod-profit">+${fmt(e.profit)} <svg class="tonic"><use href="#i-ton"/></svg></div>
+        <div class="pod-stand">${e.rank}</div>
+      </div>`;
+    }).join('');
+  }else{ pod.style.display='none'; pod.innerHTML=''; }
+
+  // остальные места с 4-го
+  const rest = top.slice(3);
+  const el = document.getElementById('lbList');
+  el.innerHTML = rest.length ? rest.map(e=>{
+    const me = d.myName && e.name===d.myName;
+    return `<div class="lb-item${me?' me':''}">
+      <div class="lb-rank">${e.rank}</div>
+      <div class="lb-ava" style="${lbAva(e.name)}">${lbInitials(e.name)}</div>
+      <div class="lb-name">${e.name}</div>
+      <div class="lb-profit">+${fmt(e.profit)} <svg class="tonic"><use href="#i-ton"/></svg></div>
+    </div>`;
+  }).join('') : (top.length?'':'<div class="hist-empty">Пока никто не выигрывал</div>');
+
+  // моё место снизу
+  const mp = document.getElementById('myPlace');
+  if(d.myRank>0){
+    mp.style.display='flex';
+    mp.innerHTML = `<div class="lb-rank">${d.myRank}</div>
+      <div class="lb-ava" style="${lbAva(d.myName)}">${lbInitials(d.myName)}</div>
+      <div class="lb-name">Ты · из ${d.total} игроков</div>
+      <div class="lb-profit">+${fmt(d.myProfit)} <svg class="tonic"><use href="#i-ton"/></svg></div>`;
+  }else{
+    mp.style.display='flex';
+    mp.innerHTML = `<div class="lb-name" style="color:var(--muted);text-align:center;width:100%">Сыграй и выиграй, чтобы попасть в рейтинг</div>`;
+  }
+}
+
+// локальный фолбэк — строим топ из локальной истории
+function renderLeaderboardLocal(){
+  const h=getHistory();
+  const agg={};
+  for(const r of h){ agg[r.name]=(agg[r.name]||0)+ (r.amount - r.amount/Math.max(r.mult,1)); }
+  const top=Object.entries(agg).map(([name,profit])=>({name,profit:+profit.toFixed(2)}))
+    .filter(e=>e.profit>0).sort((a,b)=>b.profit-a.profit).map((e,i)=>({...e,rank:i+1}));
+  renderLeaderboard({ top, total:top.length, prizeBank:0, prizeGame:100000, gameId:gameId, myRank:0, myProfit:0, myName:myName });
+}
 
 // ===== рендер =====
 
@@ -1293,7 +1426,7 @@ function connectSocket(){
 
   socket.on('connect',()=>{
     online=true;
-    socket.emit('auth',{ username:myUsername, name:myName,
+    socket.emit('auth',{ username:myUsername, name:myName, fullName:myFullName,
       initials:ME.initials, avatar:myAvatar,
       initData: tg?.initData || '' });
   });
@@ -1306,6 +1439,8 @@ function connectSocket(){
   socket.on('bet', applyBet);
   socket.on('resolve', applyResolve);
   socket.on('history',(h)=>{ if(Array.isArray(h)){ netHistory=h; renderHistCards(); } });
+  socket.on('leaderboard',(d)=>{ lbData=d; if(document.getElementById('lbPage').classList.contains('open')) renderLeaderboard(d); });
+  socket.on('prizeDone',(d)=>{ if(d&&d.top&&d.top[0]) toast(`Банк призовых разыгран! 1 место: ${d.top[0].name}`); });
   socket.on('balance',(d)=>{ if(typeof d.balance==='number'){ balance=d.balance; store_set('balance',balance); renderAll(); }});
   socket.on('reject',(d)=>{ toast(d?.msg||'Ставка отклонена'); });
   socket.on('disconnect',()=>{ online=false; });
