@@ -145,6 +145,7 @@ let state = {
   bigCarry: null,            // {who, amount, gamesLeft} — крупный игрок докидывает несколько игр
   sharkSession: 0,           // сколько игр подряд заходят акулы
   rig: null,                 // username, которому подкручиваем (режим админа)
+  pending: null,             // отложенный выигрыш (начисляем после анимации)
 };
 
 function nextAngle(){
@@ -169,6 +170,17 @@ function addPlayer(who, amount){
 }
 
 function newRound(){
+  // применяем отложенный выигрыш прошлой игры — анимация уже доиграла у всех
+  if(state.pending){
+    const pend=state.pending; state.pending=null;
+    if(pend.username){
+      setBalance(pend.username, getBalance(pend.username)+pend.takehome);
+      for(const [sid,u] of Object.entries(sockUser)){
+        if(u===pend.username) io.to(sid).emit('balance',{ balance:getBalance(u) });
+      }
+    }
+    pushHistory(pend.hist);
+  }
   state.gameId++;
   state.phase='betting';
   state.players=[];
@@ -253,17 +265,16 @@ function lockRound(){
     const net=Math.max(0, bank-winner.amount);
     takehome=winner.amount + net*(1-COMMISSION);
     mult=winner.amount>0? takehome/winner.amount : 0;
-    if(!winner.isBot && winner.username){
-      setBalance(winner.username, getBalance(winner.username)+takehome);
-      for(const [sid,u] of Object.entries(sockUser)){
-        if(u===winner.username) io.to(sid).emit('balance',{ balance:getBalance(u) });
+    // начисление и история откладываются до конца анимации (старт след. раунда),
+    // чтобы баланс и «Последняя игра» не появлялись раньше остановки шайбы
+    state.pending = {
+      username: (!winner.isBot && winner.username) ? winner.username : null,
+      takehome,
+      hist: {
+        gameId:state.gameId, name:winner.name, initials:winner.initials,
+        avatar:winner.avatar||null, amount:+takehome.toFixed(2), mult:+mult.toFixed(2), t:Date.now()
       }
-    }
-    // глобальная история — одна на всех, копится на сервере
-    pushHistory({
-      gameId:state.gameId, name:winner.name, initials:winner.initials,
-      avatar:winner.avatar||null, amount:+takehome.toFixed(2), mult:+mult.toFixed(2), t:Date.now()
-    });
+    };
   }
   state.resolve = { seed:state.seed, players:publicPlayers(), winnerId,
     takehome:+takehome.toFixed(2), mult:+mult.toFixed(2),
