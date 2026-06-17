@@ -185,7 +185,23 @@
 
   /* список истории */
   /* банк призовых */
-  .prize-box{background:linear-gradient(160deg,#1e2a22,#15201a);border:1px solid #2a4736;border-radius:24px;padding:18px;text-align:center;margin-bottom:18px}
+  .prize-box{position:relative;background:linear-gradient(160deg,#1e2a22,#15201a);border:1px solid #2a4736;border-radius:24px;padding:18px;text-align:center;margin-bottom:18px}
+  .prize-info{position:absolute;top:12px;right:12px;width:26px;height:26px;border-radius:50%;border:none;cursor:pointer;
+    background:rgba(255,255,255,.1);color:#9fe0bb;font-weight:900;font-style:italic;font-size:15px;font-family:Georgia,serif;line-height:1}
+  .ti-overlay{position:fixed;inset:0;z-index:140;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
+    display:none;align-items:center;justify-content:center;padding:24px}
+  .ti-overlay.open{display:flex}
+  .ti-card{position:relative;max-width:360px;width:100%;background:#1b1b22;border:1px solid #2a2a34;border-radius:24px;padding:24px 22px}
+  .ti-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border:none;border-radius:50%;background:rgba(255,255,255,.1);cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .ti-close .ic{width:13px;height:13px;stroke:#fff;stroke-width:2.6}
+  .ti-title{font-weight:900;font-size:22px;margin-bottom:14px}
+  .ti-card p{color:var(--muted);font-size:14px;line-height:1.5;margin:0 0 12px}
+  .ti-card p b{color:#fff}
+  .ti-split{display:flex;flex-direction:column;gap:8px;background:#15151a;border-radius:16px;padding:12px 14px;margin:4px 0 14px}
+  .ti-split>div{display:flex;justify-content:space-between;align-items:center}
+  .ti-medal{font-weight:800;font-size:14px}
+  .ti-split b{font-size:16px}
+  .ti-hint{font-size:12.5px !important;color:var(--muted2) !important;margin-bottom:0 !important}
   .prize-label{color:#7fcfa0;font-weight:700;font-size:14px;margin-bottom:6px}
   .prize-amt{display:flex;align-items:center;justify-content:center;gap:8px;font-weight:900;font-size:38px;line-height:1}
   .prize-amt .tonic{width:30px;height:30px}
@@ -215,9 +231,12 @@
   .lb-name{flex:1;min-width:0;font-weight:800;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .lb-profit{font-weight:900;font-size:15px;display:flex;align-items:center;gap:5px;white-space:nowrap}
   .lb-profit .tonic{width:15px;height:15px}
-  .myplace{position:fixed;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;z-index:95;
-    background:#15151a;border-top:1px solid #2a2a32;padding:14px 16px calc(16px + env(safe-area-inset-bottom));
-    display:flex;align-items:center;gap:12px}
+  .myplace{position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));max-width:456px;margin:0 auto;z-index:95;
+    background:rgba(32,32,40,.96);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,.08);border-radius:20px;box-shadow:0 12px 34px rgba(0,0,0,.55);
+    padding:12px 16px;display:flex;align-items:center;gap:12px;
+    transform:translateY(160%);opacity:0;transition:transform .38s cubic-bezier(.34,1.4,.5,1),opacity .25s;pointer-events:none}
+  .myplace.show{transform:translateY(0);opacity:1;pointer-events:auto}
   .myplace .lb-rank{color:var(--blue)}
   /* компактный слайдер на странице топа */
   .hseg{position:relative;display:flex;background:#1d1d22;border-radius:16px;padding:4px;margin-bottom:14px}
@@ -442,15 +461,31 @@
       <h2>Рейтинг</h2>
     </div>
     <div class="prize-box">
+      <button class="prize-info" onclick="openTournamentInfo()" aria-label="Условия турнира">i</button>
       <div class="prize-label">Банк призовых</div>
       <div class="prize-amt"><b id="prizeAmt">0</b> <svg class="tonic"><use href="#i-ton"/></svg></div>
-      <div class="prize-sub" id="prizeSub">Распределится после 100 000 игры</div>
-      <div class="prize-split">1 место — 50% · 2 место — 30% · 3 место — 20%</div>
+      <div class="prize-sub" id="prizeSub"></div>
     </div>
     <div class="podium" id="podium"></div>
     <div id="lbList"></div>
   </div>
   <div class="myplace" id="myPlace" style="display:none"></div>
+</div>
+
+<!-- условия турнира -->
+<div class="ti-overlay" id="tiOverlay" onclick="if(event.target===this)closeTournamentInfo()">
+  <div class="ti-card">
+    <button class="ti-close" onclick="closeTournamentInfo()"><svg class="ic"><use href="#i-x"/></svg></button>
+    <div class="ti-title">Турнир</div>
+    <p>Каждая игра пополняет общий банк призовых — в него идёт 1% от каждого выигрыша.</p>
+    <p>Банк распределится после <b>100 000</b> игры между тремя лидерами по чистой прибыли:</p>
+    <div class="ti-split">
+      <div><span class="ti-medal" style="color:#ffd23f">1 место</span><b>50%</b></div>
+      <div><span class="ti-medal" style="color:#cfd4dc">2 место</span><b>30%</b></div>
+      <div><span class="ti-medal" style="color:#e0925a">3 место</span><b>20%</b></div>
+    </div>
+    <p class="ti-hint">Чистая прибыль — это всё, что ты реально выиграл сверх своих ставок (с учётом комиссии 15%). Она только растёт.</p>
+  </div>
 </div>
 
 <!-- окно победы -->
@@ -1255,19 +1290,26 @@ function openLeaderboard(){
   if(online && socket && socket.connected) socket.emit('leaderboard');
   else renderLeaderboardLocal();
 }
-function closeLeaderboard(){ document.getElementById('lbPage').classList.remove('open'); }
+function closeLeaderboard(){ document.getElementById('lbPage').classList.remove('open'); if(myRowObserver){myRowObserver.disconnect();myRowObserver=null;} }
+function openTournamentInfo(){ document.getElementById('tiOverlay').classList.add('open'); }
+function closeTournamentInfo(){ document.getElementById('tiOverlay').classList.remove('open'); }
 
-function lbAva(name, size){
+function lbAvaStyle(name){
   const grad=PALETTE[((name||'').length)%PALETTE.length];
   return `background:linear-gradient(135deg,${grad[0]},${grad[1]})`;
 }
 function lbInitials(name){ return initialsOf(name); }
+// кружок аватарки: фото если есть, иначе инициалы на градиенте
+function avaInnerLB(name, avatar){
+  return avatar ? `<img src="${avatar}" alt="">` : lbInitials(name);
+}
 
+let myRowObserver=null;
 function renderLeaderboard(d){
   if(!d){ return; }
   document.getElementById('prizeAmt').textContent = fmt(d.prizeBank||0);
   document.getElementById('prizeSub').textContent =
-    `Распределится после ${(d.prizeGame||100000).toLocaleString('ru-RU')} игры · сейчас #${(d.gameId||0).toLocaleString('ru-RU')}`;
+    `сейчас идёт игра #${(d.gameId||0).toLocaleString('ru-RU')}`;
 
   const top = d.top||[];
   // пьедестал — первая тройка: 2-е слева, 1-е по центру, 3-е справа
@@ -1279,7 +1321,7 @@ function renderLeaderboard(d){
     pod.innerHTML = order.map((e,i)=>{
       if(!e) return `<div class="pod ${cls[i]}" style="visibility:hidden"></div>`;
       return `<div class="pod ${cls[i]}">
-        <div class="pod-ava" style="${lbAva(e.name)}">${lbInitials(e.name)}</div>
+        <div class="pod-ava" style="${lbAvaStyle(e.name)}">${avaInnerLB(e.name,e.avatar)}</div>
         <div class="pod-name">${e.name}</div>
         <div class="pod-profit">+${fmt(e.profit)} <svg class="tonic"><use href="#i-ton"/></svg></div>
         <div class="pod-stand">${e.rank}</div>
@@ -1287,30 +1329,45 @@ function renderLeaderboard(d){
     }).join('');
   }else{ pod.style.display='none'; pod.innerHTML=''; }
 
-  // остальные места с 4-го
+  // остальные места с 4-го; свою строку помечаем id, чтобы отслеживать видимость
   const rest = top.slice(3);
   const el = document.getElementById('lbList');
   el.innerHTML = rest.length ? rest.map(e=>{
     const me = d.myName && e.name===d.myName;
-    return `<div class="lb-item${me?' me':''}">
+    return `<div class="lb-item${me?' me':''}"${me?' id="myRow"':''}>
       <div class="lb-rank">${e.rank}</div>
-      <div class="lb-ava" style="${lbAva(e.name)}">${lbInitials(e.name)}</div>
+      <div class="lb-ava" style="${lbAvaStyle(e.name)}">${avaInnerLB(e.name,e.avatar)}</div>
       <div class="lb-name">${e.name}</div>
       <div class="lb-profit">+${fmt(e.profit)} <svg class="tonic"><use href="#i-ton"/></svg></div>
     </div>`;
   }).join('') : (top.length?'':'<div class="hist-empty">Пока никто не выигрывал</div>');
 
-  // моё место снизу
+  // плашка «моё место»
   const mp = document.getElementById('myPlace');
   if(d.myRank>0){
-    mp.style.display='flex';
     mp.innerHTML = `<div class="lb-rank">${d.myRank}</div>
-      <div class="lb-ava" style="${lbAva(d.myName)}">${lbInitials(d.myName)}</div>
+      <div class="lb-ava" style="${lbAvaStyle(d.myName)}">${avaInnerLB(d.myName,d.myAvatar)}</div>
       <div class="lb-name">Ты · из ${d.total} игроков</div>
       <div class="lb-profit">+${fmt(d.myProfit)} <svg class="tonic"><use href="#i-ton"/></svg></div>`;
   }else{
-    mp.style.display='flex';
     mp.innerHTML = `<div class="lb-name" style="color:var(--muted);text-align:center;width:100%">Сыграй и выиграй, чтобы попасть в рейтинг</div>`;
+  }
+
+  // показываем плашку, только когда своей строки не видно на экране
+  if(myRowObserver){ myRowObserver.disconnect(); myRowObserver=null; }
+  const myRow = document.getElementById('myRow');
+  const inPodium = d.myRank>0 && d.myRank<=3;
+  if(d.myRank>0 && myRow && !inPodium){
+    // строка есть в списке — следим за её видимостью
+    myRowObserver = new IntersectionObserver((entries)=>{
+      mp.classList.toggle('show', !entries[0].isIntersecting);
+    }, { threshold:0 });
+    myRowObserver.observe(myRow);
+    mp.classList.remove('show');   // на старте строка видна сверху
+  }else if(inPodium){
+    mp.classList.remove('show');   // в тройке — плашка не нужна
+  }else{
+    mp.classList.add('show');      // строки в списке нет (вне топ-50 или ещё не в рейтинге)
   }
 }
 
@@ -1321,7 +1378,7 @@ function renderLeaderboardLocal(){
   for(const r of h){ agg[r.name]=(agg[r.name]||0)+ (r.amount - r.amount/Math.max(r.mult,1)); }
   const top=Object.entries(agg).map(([name,profit])=>({name,profit:+profit.toFixed(2)}))
     .filter(e=>e.profit>0).sort((a,b)=>b.profit-a.profit).map((e,i)=>({...e,rank:i+1}));
-  renderLeaderboard({ top, total:top.length, prizeBank:0, prizeGame:100000, gameId:gameId, myRank:0, myProfit:0, myName:myName });
+  renderLeaderboard({ top, total:top.length, prizeBank:0, prizeGame:100000, gameId:gameId, myRank:0, myProfit:0, myName:myName, myAvatar:myAvatar });
 }
 
 // ===== рендер =====

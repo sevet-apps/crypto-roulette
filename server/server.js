@@ -138,6 +138,8 @@ setInterval(()=>{
 let prizeDirty = false;
 function addPrize(amount){ prizeBank += amount; prizeDirty = true; }
 
+const avatars = {};   // ukey -> avatar url (для рейтинга)
+
 const PRIZE_GAME = 100000;   // банк распределяется после этой игры
 const PRIZE_SPLIT = [0.5, 0.3, 0.2];
 
@@ -147,6 +149,7 @@ function leaderboard(){
     .map(([key,s])=>({
       key,
       name: s.name || (s.bot?'Бот':'Игрок'),
+      avatar: avatars[key] || null,
       bot: !!s.bot,
       profit: +s.profit.toFixed(2),
     }))
@@ -190,6 +193,18 @@ async function loadAll(){
     try{ const sf=JSON.parse(fs.readFileSync(STATS_FILE,'utf8')); stats=sf.stats||sf||{}; prizeBank=sf.prizeBank||0; }catch(e){}
     try{ history = JSON.parse(fs.readFileSync(HIST_FILE,'utf8')); }catch(e){}
     try{ const gs=JSON.parse(fs.readFileSync(path.join(__dirname,'gamestate.json'),'utf8')); gameCounter=gs.game_id||0; }catch(e){}
+  }
+  // миграция: старые записи статистики были на голом юзернейме — переносим на ключ u_<username>
+  for(const k of Object.keys(stats)){
+    if(!k.startsWith('u_') && !k.startsWith('bot:')){
+      const nk='u_'+k;
+      if(!stats[nk]) stats[nk]=stats[k];
+      delete stats[k];
+      statsDirty[nk]=true;
+    }
+    // на всякий случай добиваем недостающие поля у старых строк
+    const s=stats[k]||stats['u_'+k];
+    if(s){ if(s.deposits==null)s.deposits=0; if(s.profit==null)s.profit=0; }
   }
 }
 
@@ -307,7 +322,8 @@ function addPlayer(who, amount){
   if(p){ p.amount += amount; }
   else{
     p = { id:who.id, name:who.name, anon:!!who.anon, initials:who.initials, avatar:who.avatar||null,
-          amount, order:state.players.length, angle:nextAngle(), isBot:!!who.isBot, username:who.username||null };
+          amount, order:state.players.length, angle:nextAngle(), isBot:!!who.isBot,
+          username:who.username||null, botName:who.botName||null };
     state.players.push(p);
   }
   return p;
@@ -465,7 +481,7 @@ io.on('connection', (sock)=>{
     sock.data.fullName = d?.fullName || sock.data.name;   // имя+фамилия из профиля
     sock.data.initials = d?.initials || 'PL';
     sock.data.avatar = d?.avatar || null;
-    if(u){ sockUser[sock.id]=u; sock.emit('balance',{ balance:getBalance(u) }); }
+    if(u){ sockUser[sock.id]=u; if(sock.data.avatar) avatars['u_'+u]=sock.data.avatar; sock.emit('balance',{ balance:getBalance(u) }); }
   });
 
   sock.on('bet', (d)=>{
@@ -481,6 +497,7 @@ io.on('connection', (sock)=>{
     addPlayer({ id:'u_'+u, name:sock.data.name, initials:sock.data.initials,
                 avatar:sock.data.avatar, anon:false, isBot:false, username:u }, amount);
     statBet('u_'+u, sock.data.name, sock.data.fullName, amount, firstBet);
+    if(sock.data.avatar) avatars['u_'+u] = sock.data.avatar;
     sock.emit('balance',{ balance:getBalance(u) });
     io.emit('bet', { players: publicPlayers() });
   });
@@ -504,7 +521,7 @@ io.on('connection', (sock)=>{
   // запрос рейтинга: топ по чистой прибыли + банк призовых + моё место
   sock.on('leaderboard', ()=>{
     const lb = leaderboard();
-    const top = lb.slice(0,50).map((e,i)=>({ rank:i+1, name:e.name, profit:e.profit, bot:e.bot }));
+    const top = lb.slice(0,50).map((e,i)=>({ rank:i+1, name:e.name, avatar:e.avatar, profit:e.profit, bot:e.bot }));
     let myRank=0, myProfit=0;
     const u = sock.data.user;
     if(u){
@@ -515,7 +532,7 @@ io.on('connection', (sock)=>{
       top, total: lb.length,
       prizeBank: +prizeBank.toFixed(2),
       prizeGame: PRIZE_GAME, gameId: state.gameId,
-      myRank, myProfit, myName: sock.data.name||null,
+      myRank, myProfit, myName: sock.data.name||null, myAvatar: sock.data.avatar||null,
     });
   });
 });
@@ -549,20 +566,21 @@ bot.on('inline_query', (q)=>{
       const earned = s.won - s.wagered;
       const display = s.fullName || s.name || ('@'+raw);
       const sign = earned>=0?'+':'';
+      // HTML — надёжнее Markdown, ссылка зашита прямо в жирный текст Anticasino
       const text =
-        `*Игрок: ${mdEsc(display)} (@${raw})*\n\n`+
-        `*PVP Arena*\n`+
+        `<b>Игрок: ${htmlEsc(display)} (@${raw})</b>\n\n`+
+        `<b>PVP Arena</b>\n`+
         `Игр: ${s.games} (побед: ${s.wins}, winrate: ${winrate.toFixed(1)}%)\n`+
-        `Поставлено: *${fmtTon(s.wagered)} TON*\n`+
-        `Выиграно: *${fmtTon(s.won)} TON*\n`+
-        `Заработано: *${sign}${fmtTon(earned)} TON*\n`+
-        `Сделано депозитов: *${fmtTon(s.deposits||0)} TON*\n\n`+
-        `*[${APP_NAME}](${APP_LINK})*`;
+        `Поставлено: <b>${fmtTon(s.wagered)} TON</b>\n`+
+        `Выиграно: <b>${fmtTon(s.won)} TON</b>\n`+
+        `Заработано: <b>${sign}${fmtTon(earned)} TON</b>\n`+
+        `Сделано депозитов: <b>${fmtTon(s.deposits||0)} TON</b>\n\n`+
+        `<b><a href="${APP_LINK}">${APP_NAME}</a></b>`;
       results.push({
         type:'article', id:'stat_'+raw,
         title:`Статистика ${display}`,
         description:`Игр: ${s.games} · winrate ${winrate.toFixed(0)}% · заработано ${sign}${fmtTon(earned)} TON`,
-        input_message_content:{ message_text:text, parse_mode:'Markdown', disable_web_page_preview:true },
+        input_message_content:{ message_text:text, parse_mode:'HTML', disable_web_page_preview:true },
       });
     }else{
       results.push({
@@ -616,6 +634,7 @@ function fmtTon(n){
 }
 // экранируем спецсимволы Markdown в имени, чтобы карточка не сломалась
 function mdEsc(s){ return (''+s).replace(/([_*\[\]()`])/g, '\\$1'); }
+function htmlEsc(s){ return (''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 bot.onText(/^\/buy\s+([\d.,]+)\s+@?(\w+)/i, (msg, match)=>{
   if(!isOwner(msg)) return;
