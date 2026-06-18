@@ -90,6 +90,49 @@ function pushHistory(rec){
   }
 }
 
+// ---- повторы матчей (только топовые + последние ~500) ----
+// повтор = сид + состав игроков; этого хватает, чтобы воспроизвести игру 1в1
+const REPLAY_FILE = path.join(__dirname, 'replays.json');
+let replays = {};        // gameId -> {seed, winnerId, players}
+let replayPruneCtr = 0;
+function saveReplaysFile(){ try{ fs.writeFileSync(REPLAY_FILE, JSON.stringify(replays)); }catch(e){} }
+function pushReplay(gameId, rep){
+  replays[gameId] = rep;
+  if(supa){
+    supa.from('replays').upsert({ game_id:gameId, data:rep }).then(()=>{},()=>{});
+  }
+  // чистим лишние повторы раз в 100 игр, чтобы хранить только топ + последние
+  if(++replayPruneCtr >= 100){ replayPruneCtr=0; pruneReplays(); }
+  else if(!supa){ // в файловом режиме держим карту небольшой
+    const ids=Object.keys(replays).map(Number).sort((a,b)=>b-a);
+    if(ids.length>700){ for(const id of ids.slice(700)) delete replays[id]; saveReplaysFile(); }
+    else saveReplaysFile();
+  }
+}
+async function pruneReplays(){
+  // оставляем: последние 500 + топ-100 по сумме + топ-100 по иксу
+  const keep = new Set();
+  if(supa){
+    try{
+      const a=await supa.from('history').select('game_id').order('game_id',{ascending:false}).limit(500);
+      const b=await supa.from('history').select('game_id').order('amount',{ascending:false}).limit(100);
+      const c=await supa.from('history').select('game_id').order('mult',{ascending:false}).limit(100);
+      [a,b,c].forEach(r=>(r.data||[]).forEach(x=>keep.add(x.game_id)));
+      // удаляем из БД повторы вне keep-набора
+      const ids=[...keep];
+      if(ids.length) await supa.from('replays').delete().not('game_id','in','('+ids.join(',')+')');
+      // обновляем память
+      for(const id of Object.keys(replays).map(Number)) if(!keep.has(id)) delete replays[id];
+    }catch(e){}
+  }else{
+    history.slice().sort((a,b)=>b.gameId-a.gameId).slice(0,500).forEach(r=>keep.add(r.gameId));
+    history.slice().sort((a,b)=>b.amount-a.amount).slice(0,100).forEach(r=>keep.add(r.gameId));
+    history.slice().sort((a,b)=>b.mult-a.mult).slice(0,100).forEach(r=>keep.add(r.gameId));
+    for(const id of Object.keys(replays).map(Number)) if(!keep.has(id)) delete replays[id];
+    saveReplaysFile();
+  }
+}
+
 // ---- статистика игроков (и ботов) ----
 const STATS_FILE = path.join(__dirname, 'stats.json');
 let stats = {};
@@ -186,25 +229,45 @@ async function loadAll(){
       const g = await supa.from('game_state').select('*').eq('id',1).maybeSingle();
       if(g.data && g.data.game_id) gameCounter = g.data.game_id;
       if(g.data && g.data.prize_bank) prizeBank = +g.data.prize_bank;
-      console.log('Загружено из Supabase: игра #'+gameCounter+', история '+history.length);
+      const rp = await supa.from('replays').select('*');
+      if(rp.data) for(const r of rp.data) replays[r.game_id]=r.data;
+      console.log('Загружено из Supabase: игра #'+gameCounter+', история '+history.length+', повторы '+Object.keys(replays).length);
     }catch(e){ console.error('Ошибка загрузки из Supabase:', e.message); }
   }else{
     try{ balances = JSON.parse(fs.readFileSync(DB_FILE,'utf8')); }catch(e){}
     try{ const sf=JSON.parse(fs.readFileSync(STATS_FILE,'utf8')); stats=sf.stats||sf||{}; prizeBank=sf.prizeBank||0; }catch(e){}
     try{ history = JSON.parse(fs.readFileSync(HIST_FILE,'utf8')); }catch(e){}
+    try{ replays = JSON.parse(fs.readFileSync(REPLAY_FILE,'utf8')); }catch(e){}
     try{ const gs=JSON.parse(fs.readFileSync(path.join(__dirname,'gamestate.json'),'utf8')); gameCounter=gs.game_id||0; }catch(e){}
   }
-  // миграция: старые записи статистики были на голом юзернейме — переносим на ключ u_<username>
+  // миграция: старые записи статистики были на голом юзернейме.
+  // переносим на ключ u_<username>, СУММИРУЯ со свежими данными (а не затирая),
+  // иначе теряется исторический объём. старую строку чистим, чтобы не задвоить.
   for(const k of Object.keys(stats)){
-    if(!k.startsWith('u_') && !k.startsWith('bot:')){
-      const nk='u_'+k;
-      if(!stats[nk]) stats[nk]=stats[k];
-      delete stats[k];
-      statsDirty[nk]=true;
+    if(k.startsWith('u_') || k.startsWith('bot:')){
+      const s=stats[k]; if(s){ if(s.deposits==null)s.deposits=0; if(s.profit==null)s.profit=0; }
+      continue;
     }
-    // на всякий случай добиваем недостающие поля у старых строк
-    const s=stats[k]||stats['u_'+k];
-    if(s){ if(s.deposits==null)s.deposits=0; if(s.profit==null)s.profit=0; }
+    const nk='u_'+k;
+    const old=stats[k];
+    if(stats[nk]){
+      const n=stats[nk];               // объединяем: старый объём + новые игры
+      n.games   =(n.games||0)+(old.games||0);
+      n.wins    =(n.wins||0)+(old.wins||0);
+      n.wagered =(n.wagered||0)+(old.wagered||0);
+      n.won     =(n.won||0)+(old.won||0);
+      n.deposits=(n.deposits||0)+(old.deposits||0);
+      n.profit  =(n.profit||0)+(old.profit||0);
+      n.name    = n.name||old.name;
+      n.fullName= n.fullName||old.fullName;
+    }else{
+      stats[nk]=old;
+      if(stats[nk].deposits==null)stats[nk].deposits=0;
+      if(stats[nk].profit==null)stats[nk].profit=0;
+    }
+    delete stats[k];
+    statsDirty[nk]=true;
+    if(supa){ supa.from('stats').delete().eq('ukey', k).then(()=>{},()=>{}); }  // убираем старую строку
   }
 }
 
@@ -342,6 +405,7 @@ function newRound(){
     // прибыль/победа в рейтинг — и для игроков, и для ботов
     if(pend.statKey) statWin(pend.statKey, pend.takehome, pend.bet);
     pushHistory(pend.hist);
+    if(pend.replay) pushReplay(pend.hist.gameId, pend.replay);
     maybeDistributePrize();
   }
   gameCounter++;
@@ -441,6 +505,7 @@ function lockRound(){
       username: (!winner.isBot && winner.username) ? winner.username : null,
       statKey: winner.isBot ? botKey(winner.botName) : ('u_'+winner.username),
       takehome, bet: winner.amount,
+      replay: { seed: state.seed, winnerId, players: publicPlayers() },
       hist: {
         gameId:state.gameId, name:winner.name, initials:winner.initials,
         avatar:winner.avatar||null, amount:+takehome.toFixed(2), mult:+mult.toFixed(2), t:Date.now()
@@ -516,7 +581,41 @@ io.on('connection', (sock)=>{
     sock.emit('balance',{ balance:getBalance(u) });
   });
 
+  // запрос повтора матча по номеру игры
+  sock.on('replay', async ({gameId})=>{
+    let rep = replays[gameId];
+    if(!rep && supa){
+      try{ const r=await supa.from('replays').select('data').eq('game_id',gameId).maybeSingle(); if(r.data) rep=r.data.data; }catch(e){}
+    }
+    sock.emit('replay', { gameId, replay: rep||null });
+  });
+
   sock.on('disconnect', ()=>{ delete sockUser[sock.id]; });
+
+  // топы истории за всё время (в памяти только последние 300 — берём из Supabase)
+  sock.on('histTab', async ({tab})=>{
+    const mapRow = r => ({ gameId:r.game_id, name:r.name, initials:r.initials, avatar:r.avatar, amount:+r.amount, mult:+r.mult, t:+r.t });
+    let rows=[];
+    if(supa){
+      try{
+        let q=supa.from('history').select('*');
+        if(tab==='big')       q=q.order('amount',{ascending:false}).limit(100);
+        else if(tab==='mult') q=q.order('mult',{ascending:false}).limit(100);
+        else if(tab==='mine') q=q.eq('name', sock.data.name||'').order('t',{ascending:false}).limit(100);
+        else                  q=q.order('t',{ascending:false}).limit(100);
+        const r=await q;
+        rows=(r.data||[]).map(mapRow);
+      }catch(e){ rows=[]; }
+    }else{
+      // без Supabase доступна только история в памяти
+      const h=history;
+      if(tab==='big')       rows=[...h].sort((a,b)=>b.amount-a.amount).slice(0,100);
+      else if(tab==='mult') rows=[...h].sort((a,b)=>b.mult-a.mult).slice(0,100);
+      else if(tab==='mine') rows=h.filter(r=>r.name===sock.data.name).slice(0,100);
+      else                  rows=h.slice(0,100);
+    }
+    sock.emit('histTab', { tab, rows });
+  });
 
   // запрос рейтинга: топ по чистой прибыли + банк призовых + моё место
   sock.on('leaderboard', ()=>{

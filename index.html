@@ -244,6 +244,19 @@
   .hseg button{flex:1;z-index:1;background:transparent;border:none;cursor:pointer;color:var(--muted);font-weight:700;font-size:13px;padding:9px 4px;transition:color .2s;white-space:nowrap}
   .hseg button.sel{color:#fff}
   .hist-list-item{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:18px;padding:13px 15px;margin-bottom:9px}
+  .replay-btn{flex-shrink:0;width:38px;height:38px;border-radius:50%;border:none;cursor:pointer;background:rgba(91,108,249,.16);display:flex;align-items:center;justify-content:center}
+  .replay-btn .ic{width:18px;height:18px;stroke:var(--blue);stroke-width:2.2;fill:none}
+  .replay-banner{position:fixed;top:calc(14px + env(safe-area-inset-top));left:12px;right:12px;max-width:456px;margin:0 auto;z-index:96;
+    background:rgba(32,32,40,.96);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,.08);border-radius:18px;box-shadow:0 10px 28px rgba(0,0,0,.5);
+    padding:10px 12px;display:none;align-items:center;gap:10px}
+  .replay-banner.show{display:flex}
+  .replay-banner .rb-back{width:36px;height:36px;border-radius:50%;border:none;cursor:pointer;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .replay-banner .rb-back .ic{width:16px;height:16px;stroke:#fff;stroke-width:2.4}
+  .replay-banner .rb-label{font-weight:800;font-size:14px}
+  .replay-banner .rb-sub{color:var(--muted);font-size:12px;font-weight:600}
+  body.replay .controls{display:none}
+  body.replay .tabbar{pointer-events:none;opacity:.35}
   .hist-li-ava{width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#fff}
   .hist-li-ava img{width:100%;height:100%;object-fit:cover}
   .hist-li-info{flex:1;min-width:0}
@@ -469,7 +482,14 @@
     <div class="podium" id="podium"></div>
     <div id="lbList"></div>
   </div>
-  <div class="myplace" id="myPlace" style="display:none"></div>
+</div>
+<!-- плашка «моё место» вне страницы — привязана к экрану, не скроллится -->
+<div class="myplace" id="myPlace"></div>
+
+<!-- баннер режима повтора -->
+<div class="replay-banner" id="replayBanner">
+  <button class="rb-back" onclick="exitReplay()"><svg class="ic"><use href="#i-x"/></svg></button>
+  <div><div class="rb-label" id="rbLabel">Повтор матча</div><div class="rb-sub">просмотр записи игры</div></div>
 </div>
 
 <!-- условия турнира -->
@@ -604,6 +624,7 @@ let stopT = 0, ovT = 0;
 let plannedBets = [];
 let rng = Math.random;
 let netResolve = null;         // данные резолва от сервера (онлайн-режим)
+let replayMode = false;        // идёт просмотр повтора — живые обновления игнорируем
 
 function totalBank(){ return players.reduce((s,p)=>s+p.amount,0); }
 function fmt(n){
@@ -988,7 +1009,7 @@ function showResult(){
     mult=winner.amount>0?takehome/winner.amount:0;
     if(winner.id==='me'){ balance+=takehome; store_set('balance',balance); }
   }
-  pushHistory({gameId,name:winner.name,initials:winner.initials,avatar:winner.avatar||null,amount:takehome,mult,t:Date.now()});
+  if(!replayMode) pushHistory({gameId,name:winner.name,initials:winner.initials,avatar:winner.avatar||null,amount:takehome,mult,t:Date.now()});
   document.getElementById('winTitle').textContent=(winner.id==='me')?'Вы выиграли':`${winner.name} выиграл`;
   document.getElementById('winAmt').textContent=fmt(takehome)+' TON';
   document.getElementById('winMult').textContent=mult.toFixed(2)+'x';
@@ -1108,6 +1129,7 @@ function updateRing(dt){
 function closeWin(){
   if(phase!=='result') return;
   hideWin();
+  if(replayMode) return;        // в повторе новый раунд не запускаем
   if(online){ /* ждём 'round' от сервера */ }
   else startBettingRoundLocal();
 }
@@ -1115,6 +1137,7 @@ function closeWin(){
 // ===== ставки =====
 
 function placeBet(amount){
+  if(replayMode) return;        // в режиме повтора ставки недоступны
   if(phase!=='betting'){ toast('Раунд уже идёт, жди следующий'); return; }
   amount=Math.min(amount,balance);
   if(amount<MIN_BET){ toast('Минимальная ставка 0.1 TON'); return; }
@@ -1228,10 +1251,29 @@ function pushHistory(rec){
 }
 function renderHistCards(){
   const h=getHistory();
-  const top=h.length? h.reduce((a,b)=>b.amount>a.amount?b:a) : null;
+  // «топ игра» — за всё время из кэша, если он загружен; иначе из последних игр
+  const bigList = histTabCache['big'];
+  const top = (bigList && bigList.length) ? bigList[0]
+            : (h.length? h.reduce((a,b)=>b.amount>a.amount?b:a) : null);
   const last=h.length? h[0] : null;
   document.getElementById('topGame').innerHTML = top? histBody(top) : '<div class="hist-name" style="color:var(--muted2)">—</div>';
   document.getElementById('lastGame').innerHTML = last? histBody(last) : '<div class="hist-name" style="color:var(--muted2)">—</div>';
+}
+// подмешиваем новую игру в уже загруженные кэши топов — без обращения к таблице
+let lastMergedGameId = 0;
+function mergeNewGames(){
+  const h = (online && netHistory) ? netHistory : getHistory();
+  if(!h || !h.length) return;
+  // берём только игры новее последней обработанной (история приходит новыми первыми)
+  const fresh = h.filter(r=> r.gameId > lastMergedGameId);
+  if(!fresh.length) return;
+  lastMergedGameId = Math.max(lastMergedGameId, ...h.map(r=>r.gameId));
+  for(const rec of fresh){
+    if(histTabCache['big']){ histTabCache['big'].push(rec); histTabCache['big'].sort((a,b)=>b.amount-a.amount); histTabCache['big']=histTabCache['big'].slice(0,100); }
+    if(histTabCache['mult']){ histTabCache['mult'].push(rec); histTabCache['mult'].sort((a,b)=>b.mult-a.mult); histTabCache['mult']=histTabCache['mult'].slice(0,100); }
+    if(histTabCache['date']){ histTabCache['date'].unshift(rec); histTabCache['date']=histTabCache['date'].slice(0,100); }
+    if(histTabCache['mine'] && (rec.name===myName || rec.name===myFullName)){ histTabCache['mine'].unshift(rec); histTabCache['mine']=histTabCache['mine'].slice(0,100); }
+  }
 }
 function avaInner(rec){ if(rec.avatar) return `<img src="${rec.avatar}" alt="">`; return rec.initials; }
 function histBody(rec){
@@ -1243,6 +1285,7 @@ function histBody(rec){
 // вкладки: date — по дате, mult — везучие (по иксу), big — крупные (по сумме), mine — мои игры
 const HTAB_ORDER=['date','mult','big','mine'];
 let histTab='date';
+let histTabCache={};   // tab -> массив записей с сервера (за всё время)
 function openHistory(tab){
   document.getElementById('histTitle').textContent='Рейтинг';
   setHistTab(tab||'date');
@@ -1253,17 +1296,24 @@ function setHistTab(t){
   const idx=HTAB_ORDER.indexOf(t);
   document.getElementById('histSegPill').style.transform=`translateX(${idx*100}%)`;
   document.querySelectorAll('#histSeg button').forEach(b=>b.classList.toggle('sel', b.dataset.htab===t));
+  // топы за всё время берём с сервера ОДИН раз; дальше держим кэш свежим сами
+  if(online && socket && socket.connected && !histTabCache[t]) socket.emit('histTab', { tab:t });
   renderHistList();
 }
 function renderHistList(){
-  const h=getHistory();
   let list;
-  if(histTab==='date')      list=[...h];                                   // как пришли, по времени
-  else if(histTab==='mult') list=[...h].sort((a,b)=>b.mult-a.mult);        // везучие — по иксу
-  else if(histTab==='big')  list=[...h].sort((a,b)=>b.amount-a.amount);    // крупные — по сумме
-  else if(histTab==='mine') list=h.filter(r=> r.name===myName || r.name===myFullName);  // мои игры
+  const cached = histTabCache[histTab];
+  if(cached){                          // данные с сервера за всё время
+    list = cached;
+  }else{                               // фолбэк: локальная история
+    const h=getHistory();
+    if(histTab==='date')      list=[...h];
+    else if(histTab==='mult') list=[...h].sort((a,b)=>b.mult-a.mult);
+    else if(histTab==='big')  list=[...h].sort((a,b)=>b.amount-a.amount);
+    else if(histTab==='mine') list=h.filter(r=> r.name===myName || r.name===myFullName);
+  }
   const el=document.getElementById('histList');
-  if(!list.length){ el.innerHTML='<div class="hist-empty">Пока нет игр</div>'; return; }
+  if(!list||!list.length){ el.innerHTML='<div class="hist-empty">Пока нет игр</div>'; return; }
   el.innerHTML=list.slice(0,100).map(rec=>{
     const grad=PALETTE[(rec.name.length)%PALETTE.length];
     const time=new Date(rec.t).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
@@ -1276,10 +1326,63 @@ function renderHistList(){
       <div class="hist-li-info"><div class="hist-li-name">${rec.name}</div>
         <div class="hist-li-sub">Игра #${rec.gameId} · ${time} · ${rec.mult.toFixed(2)}x</div></div>
       ${amtHtml}
+      <button class="replay-btn" onclick="requestReplay(${rec.gameId})" aria-label="Повтор"><svg class="ic"><use href="#i-repeat"/></svg></button>
     </div>`;
   }).join('');
 }
 function closeHistory(){document.getElementById('histPage').classList.remove('open');}
+
+// ===== повтор матча =====
+
+function requestReplay(gid){
+  if(online && socket && socket.connected){ socket.emit('replay', { gameId:gid }); }
+  else toast('Повторы доступны онлайн');
+}
+function playReplay(gid, rep){
+  if(!rep || !rep.players){ toast('Повтор недоступен'); return; }
+  replayMode = true;
+  // закрываем страницы истории/рейтинга, уходим на поле
+  document.getElementById('histPage').classList.remove('open');
+  document.getElementById('lbPage').classList.remove('open');
+  document.getElementById('myPlace').classList.remove('show');
+  hideWin();
+  document.body.classList.add('replay');
+  document.getElementById('rbLabel').textContent = `Повтор игры #${gid}`;
+  document.getElementById('replayBanner').classList.add('show');
+
+  // ставим состав игроков как было и считаем выигрыш победителя
+  players = rep.players.map(hydratePlayer);
+  rebuildSectors();
+  const w = players.find(p=>p.id===rep.winnerId) || players[0];
+  let takehome=0, mult=0;
+  if(w){ const bank=players.reduce((s,p)=>s+p.amount,0); const net=Math.max(0,bank-w.amount);
+    takehome=w.amount+net*(1-COMMISSION); mult=w.amount>0?takehome/w.amount:0; }
+  netResolve = { winnerId: rep.winnerId, takehome:+takehome.toFixed(2), mult:+mult.toFixed(2) };
+
+  // показываем заполненное поле, затем запускаем ту же анимацию из сида
+  phase='betting'; puck=null; winner=null; sparks=[];
+  cam.z=1; cam.x=FS/2; cam.y=FS/2;
+  timer=0; renderAll();
+  clearTimeout(replayLaunchT);
+  replayLaunchT = setTimeout(()=>{
+    if(!replayMode) return;
+    phase='spin';
+    puck=puckFromSeed((rep.seed>>>0));
+    renderStatus();
+  }, 1600);
+}
+let replayLaunchT=null;
+function exitReplay(){
+  replayMode=false;
+  clearTimeout(replayLaunchT);
+  document.body.classList.remove('replay');
+  document.getElementById('replayBanner').classList.remove('show');
+  hideWin();
+  puck=null; winner=null; netResolve=null; sparks=[]; phase='betting';
+  // возвращаемся к живой игре
+  if(online && socket && socket.connected) socket.emit('resync');
+  else renderAll();
+}
 
 // ===== рейтинг по чистой прибыли =====
 
@@ -1290,7 +1393,7 @@ function openLeaderboard(){
   if(online && socket && socket.connected) socket.emit('leaderboard');
   else renderLeaderboardLocal();
 }
-function closeLeaderboard(){ document.getElementById('lbPage').classList.remove('open'); if(myRowObserver){myRowObserver.disconnect();myRowObserver=null;} }
+function closeLeaderboard(){ document.getElementById('lbPage').classList.remove('open'); document.getElementById('myPlace').classList.remove('show'); if(myRowObserver){myRowObserver.disconnect();myRowObserver=null;} }
 function openTournamentInfo(){ document.getElementById('tiOverlay').classList.add('open'); }
 function closeTournamentInfo(){ document.getElementById('tiOverlay').classList.remove('open'); }
 
@@ -1357,15 +1460,15 @@ function renderLeaderboard(d){
   if(myRowObserver){ myRowObserver.disconnect(); myRowObserver=null; }
   const myRow = document.getElementById('myRow');
   const inPodium = d.myRank>0 && d.myRank<=3;
-  if(d.myRank>0 && myRow && !inPodium){
-    // строка есть в списке — следим за её видимостью
+  if(inPodium){
+    mp.classList.remove('show');   // в тройке — плашка не нужна
+  }else if(d.myRank>0 && myRow){
+    // следим за видимостью своей строки внутри прокручиваемой страницы;
+    // первый колбэк сам выставит начальное состояние (строка может быть ниже сгиба)
     myRowObserver = new IntersectionObserver((entries)=>{
       mp.classList.toggle('show', !entries[0].isIntersecting);
-    }, { threshold:0 });
+    }, { root: document.getElementById('lbPage'), threshold:0 });
     myRowObserver.observe(myRow);
-    mp.classList.remove('show');   // на старте строка видна сверху
-  }else if(inPodium){
-    mp.classList.remove('show');   // в тройке — плашка не нужна
   }else{
     mp.classList.add('show');      // строки в списке нет (вне топ-50 или ещё не в рейтинге)
   }
@@ -1444,6 +1547,7 @@ function hydratePlayer(sp){
 }
 
 function applyRound(d){
+  if(replayMode) return;   // во время повтора живые обновления не трогают экран
   online=true;
   gameId=d.gameId;
   phase='betting';
@@ -1458,12 +1562,14 @@ function applyRound(d){
 }
 
 function applyBet(d){
+  if(replayMode) return;
   if(typeof d.balance==='number'){ balance=d.balance; store_set('balance',balance); }
   if(d.players){ players=d.players.map(hydratePlayer); rebuildSectors(); }
   renderAll();
 }
 
 function applyResolve(d){
+  if(replayMode) return;
   // d: { seed, players, winnerId, takehome, mult }
   players=(d.players||players).map(hydratePlayer);
   rebuildSectors();
@@ -1486,8 +1592,10 @@ function connectSocket(){
     socket.emit('auth',{ username:myUsername, name:myName, fullName:myFullName,
       initials:ME.initials, avatar:myAvatar,
       initData: tg?.initData || '' });
+    socket.emit('histTab', { tab:'big' });   // топ за всё время для карточки «Топ игра»
   });
   socket.on('snapshot',(d)=>{
+    if(replayMode) return;
     if(typeof d.balance==='number'){ balance=d.balance; store_set('balance',balance); }
     if(d.phase==='resolving' && d.resolve){ applyRound(d); applyResolve(d.resolve); }
     else applyRound(d);
@@ -1495,10 +1603,12 @@ function connectSocket(){
   socket.on('round', applyRound);
   socket.on('bet', applyBet);
   socket.on('resolve', applyResolve);
-  socket.on('history',(h)=>{ if(Array.isArray(h)){ netHistory=h; renderHistCards(); } });
+  socket.on('replay',(d)=>{ if(d && d.replay) playReplay(d.gameId, d.replay); else toast('Повтор недоступен'); });
+  socket.on('history',(h)=>{ if(Array.isArray(h)){ netHistory=h; mergeNewGames(); renderHistCards(); } });
+  socket.on('histTab',(d)=>{ if(d&&d.tab&&Array.isArray(d.rows)){ histTabCache[d.tab]=d.rows; if(d.tab==='big') renderHistCards(); if(histTab===d.tab && document.getElementById('histPage').classList.contains('open')) renderHistList(); } });
   socket.on('leaderboard',(d)=>{ lbData=d; if(document.getElementById('lbPage').classList.contains('open')) renderLeaderboard(d); });
   socket.on('prizeDone',(d)=>{ if(d&&d.top&&d.top[0]) toast(`Банк призовых разыгран! 1 место: ${d.top[0].name}`); });
-  socket.on('balance',(d)=>{ if(typeof d.balance==='number'){ balance=d.balance; store_set('balance',balance); renderAll(); }});
+  socket.on('balance',(d)=>{ if(typeof d.balance==='number'){ balance=d.balance; store_set('balance',balance); if(!replayMode) renderAll(); }});
   socket.on('reject',(d)=>{ toast(d?.msg||'Ставка отклонена'); });
   socket.on('disconnect',()=>{ online=false; });
 }
