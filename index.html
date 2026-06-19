@@ -257,6 +257,32 @@
   .replay-banner .rb-sub{color:var(--muted);font-size:12px;font-weight:600}
   body.replay .controls{display:none}
   body.replay .tabbar{pointer-events:none;opacity:.35}
+  /* автоигра */
+  .auto-label{color:var(--muted);font-weight:700;font-size:14px;margin:14px 2px 8px}
+  .auto-field{display:flex;align-items:center;background:#15151a;border:1px solid #2a2a32;border-radius:16px;padding:14px 16px}
+  .auto-field input{flex:1;background:none;border:none;outline:none;color:#fff;font-weight:800;font-size:18px;width:100%}
+  .auto-field input::-webkit-outer-spin-button,.auto-field input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .auto-cur{color:var(--muted2);font-weight:800;font-size:15px;margin-left:8px}
+  .auto-field.dim{opacity:.4;pointer-events:none}
+  .auto-warn{display:none;color:#ff5a6a;font-weight:700;font-size:13px;margin:8px 2px 0}
+  .auto-warn.show{display:block}
+  .auto-chips{display:flex;gap:8px;margin-top:12px}
+  .auto-chip{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;background:#1d1d22;border:1px solid #2a2a32;border-radius:14px;padding:11px 4px;color:#fff;font-weight:800;font-size:15px;cursor:pointer}
+  .auto-chip .tonic{width:15px;height:15px}
+  .auto-chip.sel{border-color:var(--blue);background:rgba(91,108,249,.16)}
+  .auto-chips.dim{opacity:.4;pointer-events:none}
+  .auto-allin{display:flex;align-items:center;gap:10px;margin-top:16px;color:#fff;font-weight:700;font-size:14px;cursor:pointer}
+  .auto-allin .cb{width:24px;height:24px;border-radius:8px;border:2px solid #3a3a44;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+  .auto-allin .cb svg{width:15px;height:15px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+  .auto-allin.on .cb{background:var(--blue);border-color:var(--blue)}
+  .auto-allin.on .cb svg{opacity:1}
+  /* плашка управления запущенной автоигрой */
+  .auto-running{display:none;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;
+    background:rgba(91,108,249,.12);border:1px solid rgba(91,108,249,.3);border-radius:16px;padding:8px 10px 8px 14px}
+  .auto-running.show{display:flex}
+  .auto-running .auto-left{color:#fff;font-weight:700;font-size:14px;white-space:nowrap}
+  .auto-running .auto-left b{color:var(--blue)}
+  .auto-stop{background:#ff5a6a;border:none;color:#fff;font-weight:800;font-size:14px;border-radius:12px;padding:10px 16px;cursor:pointer}
   .hist-li-ava{width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;color:#fff}
   .hist-li-ava img{width:100%;height:100%;object-fit:cover}
   .hist-li-info{flex:1;min-width:0}
@@ -369,13 +395,17 @@
 
 <div class="bottom">
   <div class="bottom-inner">
+    <div class="auto-running" id="autoRunning">
+      <button class="auto-stop" onclick="autoStop()">Остановить автоигру</button>
+      <span class="auto-left">Осталось: <b id="autoLeft">0</b></span>
+    </div>
     <div class="controls">
       <button class="ctrl round" id="btnPencil" onclick="openConfig()"><svg class="ic"><use href="#i-pencil"/></svg></button>
       <button class="ctrl" data-slot="0" onclick="betSlot(0)"></button>
       <button class="ctrl" data-slot="1" onclick="betSlot(1)"></button>
       <button class="ctrl" data-slot="2" onclick="betSlot(2)"></button>
       <button class="ctrl" id="btnAllin" onclick="askAllIn()">Ва-банк</button>
-      <button class="ctrl round" id="btnRepeat" onclick="repeatBet()"><svg class="ic"><use href="#i-repeat"/></svg></button>
+      <button class="ctrl round" id="btnAuto" onclick="openAuto()" aria-label="Автоигра"><svg class="ic"><use href="#i-repeat"/></svg></button>
     </div>
     <div class="tabbar">
       <button class="tab active"><svg class="ic"><use href="#i-swords"/></svg>Арена</button>
@@ -421,6 +451,39 @@
     <div class="noshow" id="noshow" onclick="toggleNoshow()">
       <span class="cb"><svg viewBox="0 0 24 24"><path d="M4 12l5 5 11-11"/></svg></span>
       Больше не показывать
+    </div>
+  </div>
+</div>
+
+<!-- автоигра -->
+<div class="sheet-bg" id="autoBg" onclick="if(event.target===this)closeAuto()">
+  <div class="sheet">
+    <div class="grabber"></div>
+    <h3>Автоигра</h3>
+    <div class="auto-label">Размер одной ставки</div>
+    <div class="auto-field" id="autoField">
+      <input id="autoAmt" type="number" inputmode="decimal" min="0.1" step="0.1" value="1" oninput="autoOnAmt()">
+      <span class="auto-cur">TON</span>
+    </div>
+    <div class="auto-warn" id="autoWarn">Недостаточно баланса</div>
+    <div class="auto-chips">
+      <button class="auto-chip" onclick="autoSetAmt(0.5)"><svg class="tonic"><use href="#i-ton"/></svg>0.5</button>
+      <button class="auto-chip" onclick="autoSetAmt(1)"><svg class="tonic"><use href="#i-ton"/></svg>1</button>
+      <button class="auto-chip" onclick="autoSetAmt(2)"><svg class="tonic"><use href="#i-ton"/></svg>2</button>
+      <button class="auto-chip" onclick="autoSetAmt(5)"><svg class="tonic"><use href="#i-ton"/></svg>5</button>
+      <button class="auto-chip" onclick="autoSetAmt(10)"><svg class="tonic"><use href="#i-ton"/></svg>10</button>
+    </div>
+    <div class="auto-allin" id="autoAllin" onclick="autoToggleAllin()">
+      <span class="cb"><svg viewBox="0 0 24 24"><path d="M4 12l5 5 11-11"/></svg></span>
+      Ва-банк — ставить всю сумму каждую игру
+    </div>
+    <div class="auto-label">Количество игр в авторежиме</div>
+    <div class="auto-field">
+      <input id="autoCount" type="number" inputmode="numeric" min="1" step="1" value="100">
+    </div>
+    <div class="sheet-btns">
+      <button class="sheet-btn gray" onclick="autoReset()">Сбросить</button>
+      <button class="sheet-btn blue" id="autoStartBtn" onclick="autoStart()">Запустить</button>
     </div>
   </div>
 </div>
@@ -907,6 +970,64 @@ function loop(ts){
 }
 requestAnimationFrame(loop);
 
+// перетаскивание нижних шторок за грабер вниз — закрывает окно,
+// а блюр и затемнение фона по мере перетаскивания плавно ослабевают
+function initSheetDrag(){
+  document.querySelectorAll('.sheet-bg').forEach(bg=>{
+    const sheet=bg.querySelector('.sheet');
+    if(!sheet) return;
+    let startY=0, dy=0, h=0, dragging=false;
+    function setBg(prog){
+      bg.style.background=`rgba(0,0,0,${(0.55*(1-prog)).toFixed(3)})`;
+      const bl=`blur(${(6*(1-prog)).toFixed(2)}px)`;
+      bg.style.backdropFilter=bl; bg.style.webkitBackdropFilter=bl;
+    }
+    function clearInline(){
+      sheet.style.transition=''; sheet.style.transform='';
+      bg.style.background=''; bg.style.backdropFilter=''; bg.style.webkitBackdropFilter='';
+    }
+    function down(e){
+      const y=e.touches?e.touches[0].clientY:e.clientY;
+      const rect=sheet.getBoundingClientRect();
+      if(y-rect.top>90) return;                 // тянуть можно только за верх (грабер + заголовок)
+      if(e.target.closest('input,button,textarea')) return;
+      dragging=true; startY=y; h=rect.height; dy=0;
+      sheet.style.transition='none';
+    }
+    function move(e){
+      if(!dragging) return;
+      const y=e.touches?e.touches[0].clientY:e.clientY;
+      dy=Math.max(0,y-startY);
+      const prog=Math.min(1,dy/h);
+      sheet.style.transform=`translateY(${dy}px)`;
+      setBg(prog);
+      if(e.cancelable) e.preventDefault();
+    }
+    function up(){
+      if(!dragging) return;
+      dragging=false;
+      sheet.style.transition='transform .25s ease';
+      if(dy>h*0.28){                            // протянул достаточно — закрываем
+        sheet.style.transform='translateY(110%)';
+        bg.classList.remove('open');
+        setTimeout(clearInline,260);
+      }else{                                     // не дотянул — возвращаем на место
+        sheet.style.transform='translateY(0)';
+        setBg(0);
+        setTimeout(clearInline,260);
+      }
+    }
+    sheet.addEventListener('touchstart',down,{passive:true});
+    sheet.addEventListener('touchmove',move,{passive:false});
+    sheet.addEventListener('touchend',up);
+    sheet.addEventListener('touchcancel',up);
+    sheet.addEventListener('mousedown',down);
+    window.addEventListener('mousemove',move);
+    window.addEventListener('mouseup',up);
+  });
+}
+initSheetDrag();
+
 // ===== ЛОКАЛЬНЫЙ движок (фолбэк, когда нет сервера) =====
 
 function currentRoundLocal(){
@@ -1156,6 +1277,100 @@ const DEFAULT_BETS=[1,5,10];
 let betValues=store_get('betButtons',DEFAULT_BETS.slice());
 function betSlot(i){ placeBet(betValues[i]); }
 function repeatBet(){ const lb=store_get('lastBet',null); if(lb===null){toast('Сначала сделай ставку');return;} placeBet(lb); }
+
+// ===== автоигра =====
+
+let autoState = { running:false, amount:1, allin:false, count:100, left:0, lastBetGame:-1 };
+
+function openAuto(){
+  document.getElementById('autoAmt').value = autoState.amount;
+  document.getElementById('autoCount').value = autoState.count;
+  setAllinUI(autoState.allin);
+  autoOnAmt();
+  document.getElementById('autoBg').classList.add('open');
+}
+function closeAuto(){ document.getElementById('autoBg').classList.remove('open'); }
+
+function autoSetAmt(v){
+  if(autoState.allin) return;
+  document.getElementById('autoAmt').value = v;
+  autoOnAmt();
+}
+function autoOnAmt(){
+  const v = parseFloat(document.getElementById('autoAmt').value);
+  // подсветка чипа
+  document.querySelectorAll('.auto-chip').forEach(b=>{
+    const cv = parseFloat(b.textContent.trim());
+    b.classList.toggle('sel', !autoState.allin && cv===v);
+  });
+  // предупреждение о балансе (если не ва-банк)
+  const warn = document.getElementById('autoWarn');
+  const startBtn = document.getElementById('autoStartBtn');
+  const bad = !autoState.allin && (!(v>=MIN_BET) || v>balance);
+  warn.classList.toggle('show', !autoState.allin && v>balance);
+  startBtn.style.opacity = bad ? '.5' : '1';
+  startBtn.style.pointerEvents = bad ? 'none' : 'auto';
+}
+function autoToggleAllin(){ setAllinUI(!autoState.allin); }
+function setAllinUI(on){
+  autoState.allin = on;
+  document.getElementById('autoAllin').classList.toggle('on', on);
+  document.getElementById('autoField').classList.toggle('dim', on);
+  document.querySelector('.auto-chips').classList.toggle('dim', on);
+  autoOnAmt();
+}
+function autoReset(){
+  autoState.amount=1; autoState.count=100; autoState.allin=false;
+  document.getElementById('autoAmt').value=1;
+  document.getElementById('autoCount').value=100;
+  setAllinUI(false);
+}
+function autoStart(){
+  if(!online){ toast('Автоигра доступна онлайн'); return; }
+  if(!myUsername){ toast('Поставь юзернейм в Telegram'); return; }
+  const amt = parseFloat(document.getElementById('autoAmt').value);
+  const cnt = parseInt(document.getElementById('autoCount').value,10);
+  if(!(cnt>=1)){ toast('Укажи количество игр'); return; }
+  if(!autoState.allin && !(amt>=MIN_BET)){ toast('Минимальная ставка 0.1 TON'); return; }
+  if(!autoState.allin && amt>balance){ toast('Недостаточно баланса'); return; }
+  autoState.amount = autoState.allin ? 0 : amt;
+  autoState.count = cnt;
+  autoState.left = cnt;
+  autoState.running = true;
+  autoState.lastBetGame = -1;
+  closeAuto();
+  updateAutoBar();
+  autoTryBet();   // если сейчас фаза ставок — сразу ставим
+}
+function autoStop(){
+  autoState.running=false;
+  updateAutoBar();
+  toast('Автоигра остановлена');
+}
+function updateAutoBar(){
+  const bar=document.getElementById('autoRunning');
+  bar.classList.toggle('show', autoState.running);
+  document.getElementById('autoLeft').textContent = autoState.left;
+}
+// ставим автоставку в начале раунда (одна на игру)
+function autoTryBet(){
+  if(!autoState.running || replayMode) return;
+  if(phase!=='betting') return;
+  if(autoState.left<=0){ autoState.running=false; updateAutoBar(); return; }
+  if(autoState.lastBetGame===gameId) return;   // в этой игре уже ставили
+  const amt = autoState.allin ? +balance.toFixed(2) : autoState.amount;
+  if(!(amt>=MIN_BET) || balance<amt){
+    autoState.running=false; updateAutoBar();
+    toast('Автоигра остановлена: недостаточно баланса');
+    return;
+  }
+  autoState.lastBetGame = gameId;
+  socket.emit('bet', { amount: amt });
+  store_set('lastBet', amt);
+  autoState.left--;
+  updateAutoBar();
+  if(autoState.left<=0){ autoState.running=false; setTimeout(updateAutoBar, 400); }
+}
 
 // ===== настройка кнопок =====
 
@@ -1559,6 +1774,7 @@ function applyRound(d){
   bettingStart=Date.now()-(d.elapsedMs||0);
   timer=Math.max(0,Math.ceil((d.bettingMs-(d.elapsedMs||0))/1000));
   renderAll();
+  autoTryBet();   // автоигра ставит в начале раунда
 }
 
 function applyBet(d){
