@@ -1717,7 +1717,7 @@ function updateControls(){
   const betting=phase==='betting';
   document.querySelectorAll('[data-slot]').forEach((b,i)=>{const ok=betting&&balance>=betValues[i];b.disabled=!ok;b.classList.toggle('on',ok);});
   const allin=document.getElementById('btnAllin');const okA=betting&&balance>=MIN_BET;allin.disabled=!okA;allin.classList.toggle('on',okA);
-  const rep=document.getElementById('btnRepeat');const okR=betting&&store_get('lastBet',null)!==null&&balance>=MIN_BET;rep.disabled=!okR;rep.classList.toggle('on',okR);
+  const auto=document.getElementById('btnAuto');if(auto){auto.classList.toggle('on', autoState && autoState.running);}
 }
 function renderAll(){
   renderStatus();
