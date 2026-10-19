@@ -782,6 +782,13 @@ app.get('/api/balance/:username', (req,res)=>{ const u=req.params.username.toLow
 app.get('/api/history', (req,res)=>{ res.json(history); });
 app.get('/', (req,res)=>res.send('arena online ok, game #'+state.gameId));
 
+// бесплатный Render усыпляет сервис через ~15 мин без входящих запросов (и стирает историю).
+// стучимся сами в свой публичный адрес — запрос идёт через прокси Render и считается входящим
+const SELF_URL = process.env.RENDER_EXTERNAL_URL || process.env.SELF_URL || '';
+if(SELF_URL){
+  setInterval(()=>{ fetch(SELF_URL).catch(()=>{}); }, 4*60*1000);
+}
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, async ()=>{
   console.log('сервер на порту', PORT);
