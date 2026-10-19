@@ -62,6 +62,10 @@ npm run dev
 4. Start command: `npm start`
 5. Переменные: `PORT=3000` (Render подставит свой)
 
+На бесплатном тарифе Render засыпает через ~15 мин без запросов. Чтобы сервер работал 24/7,
+`.github/workflows/keepalive.yml` пингует его каждые ~4 минуты (работает из ветки `main`).
+Для постоянной истории/балансов между перезапусками задай `SUPABASE_URL` и `SUPABASE_KEY`.
+
 ## Интеграция с Telegram Mini App
 
 Для запуска как Mini App через BotFather:
